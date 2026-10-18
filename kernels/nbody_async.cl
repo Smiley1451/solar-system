@@ -25,12 +25,12 @@ This kernel uses async copy from OpenCL while the _local kernel tries to copy
 each body with a way more complicated logic.
 Besides the copy mechanism, they are equivalent.
 */
-__kernel void nbody_force_calculation(global read_write float *positions,
-                                      global read_write float *velocities,
-                                      global read_only float *masses,
-                                      read_only int nrBodies,
-                                      read_only int bodiesPerRun,
-                                      read_only int maxNrBodiesInLocal,
+__kernel void nbody_force_calculation(global float *positions,
+                                      global float *velocities,
+                                      global const float *masses,
+                                      int nrBodies,
+                                      int bodiesPerRun,
+                                      int maxNrBodiesInLocal,
                                       local float *l_pos,
                                       local float *l_mass) {
     const size_t g_id = get_global_id(0);
@@ -38,6 +38,12 @@ __kernel void nbody_force_calculation(global read_write float *positions,
     const int id3 = g_id * 3;
     const int id31 = id3 + 1;
     const int id32 = id3 + 2;
+
+    if (g_id == 0) {
+        velocities[0] = 0.0f;
+        velocities[1] = 0.0f;
+        velocities[2] = 0.0f;
+    }
 
     // we have more work items than we have bodies (so they can be evenly split)
     // so some work items don't calculate anything
@@ -71,7 +77,7 @@ __kernel void nbody_force_calculation(global read_write float *positions,
 
         // waits for copy to finish
         event_t events[2] = {posEvt, massEvt};
-        wait_group_events(2, &events);
+        wait_group_events(2, events);
 
         //for each body in local memory
         if (calc) {
@@ -83,13 +89,13 @@ __kernel void nbody_force_calculation(global read_write float *positions,
                 }
                 float4 otherPos = (float4) (l_pos[i * 3], l_pos[i * 3 + 1], l_pos[i * 3 + 2], 0);
                 float4 distance = bodyPos - otherPos;
-                float sq = dot(distance, distance);
+                float sq = dot(distance, distance) + 1.0e14f;
                 acceleration += distance * native_rsqrt(sq) * native_divide(l_mass[i], sq);
             }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
-    if (calc) {
+    if (calc && g_id > 0) {
         acceleration *= timestep;
         velocities[id3] += acceleration.x;
         velocities[id31] += acceleration.y;

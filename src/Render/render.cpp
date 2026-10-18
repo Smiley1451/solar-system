@@ -84,6 +84,12 @@ extern size_t benchmarkLength;
 extern size_t benchmarkWarmUp;
 extern BenchmarkMode benchmark;
 extern PerformanceMetricsCollector *performanceMetricsCollector;
+extern int maxFrames;
+extern std::string kernelFile;
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 void calcSimulationStep(bool cpu, bool gpu) {
     if (gpu) {
@@ -98,6 +104,42 @@ void calcSimulationStep(bool cpu, bool gpu) {
 
     performanceMetricsCollector->addCalcTime(executionTime);
     nFrames++;
+
+    if (maxFrames > 0 && (int)nFrames >= maxFrames) {
+        std::cout << "\n================ BENCHMARK RUN RESULT ================\n";
+        std::cout << "Dataset: " << dataSet->getName() << "\n";
+        std::cout << "Bodies: " << dataSet->getSize() << "\n";
+        std::cout << "Device: " << (gpu && cpu ? "CPUGPU" : (gpu ? "GPU" : "CPU")) << "\n";
+        std::cout << "Kernel: " << kernelFile << "\n";
+#ifdef _OPENMP
+        std::cout << "OpenMP_Threads: " << omp_get_max_threads() << "\n";
+#else
+        std::cout << "OpenMP_Threads: 1\n";
+#endif
+#ifdef ENABLE_SIMD
+        std::cout << "SIMD_SSE: Enabled\n";
+#else
+        std::cout << "SIMD_SSE: Disabled\n";
+#endif
+        std::cout << "Frames_Executed: " << nFrames << "\n";
+        double avgCalcMs = performanceMetricsCollector->getCalcTimes().getAvgTime() * 1000.0;
+        double minCalcMs = performanceMetricsCollector->getCalcTimes().getMinTime() * 1000.0;
+        double maxCalcMs = performanceMetricsCollector->getCalcTimes().getMaxTime() * 1000.0;
+        std::cout << "Calc_Time_Avg_ms: " << avgCalcMs << "\n";
+        std::cout << "Calc_Time_Min_ms: " << minCalcMs << "\n";
+        std::cout << "Calc_Time_Max_ms: " << maxCalcMs << "\n";
+        double avgFps = (performanceMetricsCollector->getRenderTimes().getAvgTime() > 0.0)
+                        ? (1.0 / performanceMetricsCollector->getRenderTimes().getAvgTime()) : 0.0;
+        std::cout << "FPS_Avg: " << avgFps << "\n";
+        double interactions = (double)dataSet->getSize() * (double)dataSet->getSize();
+        double megaInteractions = (performanceMetricsCollector->getCalcTimes().getAvgTime() > 0.0)
+                                  ? (interactions / performanceMetricsCollector->getCalcTimes().getAvgTime() / 1.0e6) : 0.0;
+        std::cout << "Throughput_MegaInteractions_PerSec: " << megaInteractions << "\n";
+        std::cout << "======================================================\n" << std::endl;
+        glutLeaveMainLoop();
+        return;
+    }
+
     if (benchmark == BenchmarkMode::OFF) {
         performanceMetricsCollector->printResult();
     } else if (nFrames == benchmarkLength) {

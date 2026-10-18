@@ -5,8 +5,8 @@ For documentation see file nbody_async.cl
 The only difference here is the copy mechanism, 
 which is the only thing commented here.
 */
-__kernel void nbody_force_calculation(global read_write float *positions, global read_write float *velocities, global read_only float *masses,
-                                      read_only int nrBodies, read_only int bodiesPerRun, read_only int maxNrBodiesInLocal,
+__kernel void nbody_force_calculation(global float *positions, global float *velocities, global const float *masses,
+                                      int nrBodies, int bodiesPerRun, int maxNrBodiesInLocal,
                                       local float *l_pos, local float *l_mass) {
     const size_t g_id = get_global_id(0);
     const size_t gSize = get_global_size(0);
@@ -16,6 +16,11 @@ __kernel void nbody_force_calculation(global read_write float *positions, global
     const size_t l_id = get_local_id(0);
     const bool calc = g_id < nrBodies;
 
+    if (g_id == 0) {
+        velocities[0] = 0.0f;
+        velocities[1] = 0.0f;
+        velocities[2] = 0.0f;
+    }
 
     float4 acceleration = (float4) (0, 0, 0, 0);
     float4 bodyPos;
@@ -58,13 +63,13 @@ __kernel void nbody_force_calculation(global read_write float *positions, global
                 // calculate distance between
                 float4 otherPos = (float4) (l_pos[i * 3], l_pos[i * 3 + 1], l_pos[i * 3 + 2], 0);
                 float4 distance = bodyPos - otherPos;
-                float sq = dot(distance, distance);
+                float sq = dot(distance, distance) + 1.0e14f;
                 acceleration += distance * native_rsqrt(sq) * native_divide(l_mass[i], sq);
             }
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
-    if (calc) {
+    if (calc && g_id > 0) {
         acceleration *= timestep;
         velocities[id3] += acceleration.x;
         velocities[id31] += acceleration.y;

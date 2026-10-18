@@ -34,6 +34,7 @@ public:
     void writeToLogFile(const std::string &logFileName, size_t nbody) const;
     static std::string initLogFile();
     PerformanceMetric getCalcTimes() const;
+    PerformanceMetric getRenderTimes() const { return this->renderTimes; }
 };
 
 

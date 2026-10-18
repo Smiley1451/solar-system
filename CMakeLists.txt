@@ -141,6 +141,10 @@ elseif(WIN32)
         imagehlp
     )
 
+    if(DEFINED ENABLE_OPENMP AND ${ENABLE_OPENMP})
+        target_link_libraries(N-Body-Simulation PUBLIC ${OpenMP_CXX_LIBRARIES} -fopenmp)
+    endif()
+
     # Automatically copy DLLs to build output directory
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/freeglut/build/bin/libfreeglut.dll")
         add_custom_command(TARGET N-Body-Simulation POST_BUILD

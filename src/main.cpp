@@ -43,6 +43,7 @@ extern std::vector<size_t> bodyNumbers;
 extern BenchmarkMode benchmark;
 std::string logFileName;
 extern PerformanceMetricsCollector *performanceMetricsCollector;
+extern int maxFrames;
 
 /**
  * @brief Entry Point of the program
@@ -69,6 +70,7 @@ int main(int argc, char *argv[]) {
     optionDescription.add_options()("Kernel", boost::program_options::value<std::string>(), "Kernel file to use");
     optionDescription.add_options()("Device", boost::program_options::value<std::string>(), "Device used for simulation; must be GPU, CPU or CPUGPU");
     optionDescription.add_options()("Benchmark", boost::program_options::value<std::string>(), "Run program in benchmark mode and save results; must be either SHORT or LONG");
+    optionDescription.add_options()("Frames", boost::program_options::value<int>(), "Number of frames to simulate before auto-exiting");
     boost::program_options::variables_map vm;
 
     try {
@@ -82,6 +84,9 @@ int main(int argc, char *argv[]) {
 
     if (vm.count("N")) {
         N = vm["N"].as<int>();
+    }
+    if (vm.count("Frames")) {
+        maxFrames = vm["Frames"].as<int>();
     }
     if (vm.count("Dataset")) {
         dataSetName = vm["Dataset"].as<std::string>();

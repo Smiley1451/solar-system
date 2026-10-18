@@ -108,3 +108,4 @@ size_t benchmarkWarmUp = 120;
 std::string gpuName;
 BenchmarkMode benchmark;
 PerformanceMetricsCollector *performanceMetricsCollector;
+int maxFrames = -1;

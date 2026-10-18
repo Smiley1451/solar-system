@@ -45,6 +45,7 @@ _deps
 
 doxygen_files/docu
 build/
+build-scalar/
 .vscode
 external/**/build/
 external/**/.git
