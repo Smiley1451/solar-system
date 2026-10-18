@@ -86,6 +86,45 @@ A high-performance, real-time 3D universe and solar system visualization built o
 
 ---
 
+## Running with the Universal Runner Script (`run_simulation.ps1`)
+
+A dedicated PowerShell script is provided to easily run any execution combination:
+
+```powershell
+# Run fastest GPU configuration (Default)
+.\run_simulation.ps1
+
+# Run on CPU with 8 OpenMP threads
+.\run_simulation.ps1 -Device CPU -Threads 8
+
+# Run specific OpenCL kernel (Global, Local, Async DMA)
+.\run_simulation.ps1 -Device GPU -Kernel nbody_local.cl
+
+# Run benchmark for 60 frames and auto-exit
+.\run_simulation.ps1 -Device GPU -Kernel nbody.cl -Frames 60
+
+# Run with environment variables
+$env:DEVICE = "GPU"; $env:KERNEL = "nbody.cl"; .\run_simulation.ps1
+```
+
+---
+
+## Performance & Architecture Dashboard
+
+Open [`dashboard.html`](dashboard.html) or [`index.html`](index.html) in any web browser to view the interactive performance dashboard:
+- **Real-time benchmark comparison charts** (Latency, Gravitational Throughput, Problem Size Scaling, and Thread Scaling).
+- **Searchable and sortable performance data table** across all 18 test runs.
+- **Interactive PowerShell command generator** with one-click copy.
+- **Hardware profiling & architectural insights** (Intel Core i5-8350U & Intel UHD Graphics 620).
+
+### Key Performance Highlights:
+- **GPU Speedup:** OpenCL GPU achieves **35.39× speedup** over single-threaded scalar CPU execution (**0.56 ms** vs **19.94 ms**).
+- **Peak Throughput:** **5,621 Mega-Interactions / sec** on Intel UHD Graphics 620.
+- **CPU Multi-Core Scaling:** **2.92× multi-core scaling** with 8 OpenMP threads (**5.93 ms** per step).
+- **SIMD Vectorization:** **15% performance gain** via 128-bit SSE vectorization.
+
+---
+
 ## Building from Source
 
 ### Windows (GCC / MinGW / Ninja)
