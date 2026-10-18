@@ -207,16 +207,24 @@ void render() {
         // 4. 3D Celestial bodies: glowing Sun with corona, 8 planets + Pluto, Saturn's rings, Comet tail
         visuals.renderCelestialBodies(M_view, M_projection, camPos, majorPositions, dataSet->getMaxPosition(), now);
 
-        // 5. Asteroid belt and Kuiper belt point particles
+        // 5. Asteroid belt, Kuiper belt, and simulated star N-body particles
         if (numRenderElements > 11) {
             glEnable(GL_DEPTH_TEST);
             glEnable(GL_PROGRAM_POINT_SIZE);
             glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive luminous glow for celestial points
 
             glUseProgram(shaderProgram);
-            glBindVertexArray(vao);
+            glUniformMatrix4fv(M_model_loc, 1, GL_FALSE, glm::value_ptr(M_model));
+            glUniformMatrix4fv(M_view_loc, 1, GL_FALSE, glm::value_ptr(M_view));
+            glUniformMatrix4fv(M_projection_loc, 1, GL_FALSE, glm::value_ptr(M_projection));
+            glUniform1f(glGetUniformLocation(shaderProgram, "maxPos"), dataSet->getMaxPosition());
+            glUniform1f(glGetUniformLocation(shaderProgram, "minMass"), dataSet->getMinMass());
+            glUniform1f(glGetUniformLocation(shaderProgram, "maxMass"), dataSet->getMaxMass());
+            glUniform1i(isSolarSystemLoc, 1);
             glUniform1ui(modeLoc, 0);
+
+            glBindVertexArray(vao);
             glDrawArrays(GL_POINTS, 11, (GLsizei)(numRenderElements - 11));
             glBindVertexArray(0);
             glDisable(GL_BLEND);

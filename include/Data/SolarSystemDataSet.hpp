@@ -1,6 +1,6 @@
 /**
  * @file SolarSystemDataSet.hpp
- * @brief Realistic Solar System dataset with Keplerian orbital velocities, asteroid belt, comet, and Kuiper belt.
+ * @brief Realistic Solar System dataset with Keplerian orbital velocities, asteroid belt, comet, Kuiper belt, and simulated stars.
  */
 
 #ifndef __N_BODY_SIMULATION_SOLARSYSTEMDATASET_HPP__
@@ -42,15 +42,16 @@ private:
     size_t numComets = 1;
     size_t numAsteroids = 0;
     size_t numKuiper = 0;
+    size_t numSimulatedStars = 0;
 
 public:
-    SolarSystemDataSet(std::size_t additionalBodies = 1000,
+    SolarSystemDataSet(std::size_t additionalBodies = 1600,
                        std::string initDistribution = "normal",
-                       double mMax = 1.989e30,
-                       double mMin = 1e15,
-                       double pMax = 6.5e12,
+                       double mMax = 8.5e29,
+                       double mMin = 1e16,
+                       double pMax = 5.0e11,
                        double pMin = 0,
-                       double vMax = 5e4,
+                       double vMax = 4e4,
                        double vMin = 0);
 
     std::vector<float> getFlatPositions() override;

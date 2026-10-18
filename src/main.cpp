@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
         }
     } else {
         // Default dataset: Realistic 3D Solar System with Keplerian physics
-        size_t bodies = (N > 0) ? (size_t)N : 1000;
+        size_t bodies = (N > 0) ? (size_t)N : 1600;
         if (vm.count("Max_Mass")) {
             const std::string sMaxMass = vm["Max_Mass"].as<std::string>();
             std::istringstream iss(sMaxMass);

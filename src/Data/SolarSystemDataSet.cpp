@@ -1,6 +1,6 @@
 /**
  * @file SolarSystemDataSet.cpp
- * @brief Realistic Solar System dataset with Keplerian orbital velocities, asteroid belt, comet, and Kuiper belt.
+ * @brief Realistic Solar System dataset with Keplerian orbital velocities, asteroid belt, comet, Kuiper belt, and simulated stars.
  */
 
 #include "../include/Data/SolarSystemDataSet.hpp"
@@ -15,7 +15,7 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
                                        double pMin,
                                        double vMax,
                                        double vMin) {
-    this->name = "REALISTIC SOLAR SYSTEM DATA SET";
+    this->name = "INTERACTIVE 3D SOLAR SYSTEM & UNIVERSE DATA SET";
     this->pMax = pMax;
     this->pMin = pMin;
     this->vMax = vMax;
@@ -24,16 +24,17 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
     this->mMin = mMin;
 
     const double G = 6.67430e-11;
-    const double M_sun = 1.989e30;
+    const double M_sun = 8.50e29; // Calibrated central mass for stable Keplerian dynamics across visual scales
 
     // Helper lambda to add a major body in Keplerian orbit in X-Z plane
     auto addBody = [&](const std::string &name,
                        CelestialBodyType type,
                        double mass,
-                       double r,
+                       double rNorm,
                        double angle,
                        float visualRadius,
                        float orbitalPeriodDays) {
+        double r = rNorm * pMax;
         double v = std::sqrt(G * M_sun / r);
         double posX = r * std::cos(angle);
         double posZ = r * std::sin(angle);
@@ -54,7 +55,7 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
         metadata.push_back(bm);
     };
 
-    // 0. The Central Star: Sun
+    // 0. The Central Star: Sun (at origin, visual radius 0.038)
     this->positions.emplace_back(0.0f, 0.0f, 0.0f);
     this->velocities.emplace_back(0.0f, 0.0f, 0.0f);
     this->masses.emplace_back((float)M_sun);
@@ -63,50 +64,49 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
         BodyMetadata bm;
         bm.name = "SUN";
         bm.type = BODY_SUN;
-        bm.visualRadius = 0.055f;
+        bm.visualRadius = 0.038f;
         bm.semiMajorAxis = 0.0f;
         bm.orbitalPeriodDays = 0.0f;
         metadata.push_back(bm);
     }
 
-    // 1. Mercury (0.387 AU)
-    addBody("MERCURY", BODY_MERCURY, 0.33011e24, 57.909e9, 0.35, 0.011f, 88.0f);
+    // 1. Mercury (scaled distance 0.095 - distinctly outside Sun radius 0.038!)
+    addBody("MERCURY", BODY_MERCURY, 0.33011e24, 0.095, 0.35, 0.009f, 88.0f);
 
-    // 2. Venus (0.723 AU)
-    addBody("VENUS", BODY_VENUS, 4.8675e24, 108.209e9, 1.25, 0.016f, 224.7f);
+    // 2. Venus (scaled distance 0.155)
+    addBody("VENUS", BODY_VENUS, 4.8675e24, 0.155, 1.25, 0.013f, 224.7f);
 
-    // 3. Earth (1.000 AU)
-    addBody("EARTH", BODY_EARTH, 5.9724e24, 149.596e9, 2.10, 0.017f, 365.25f);
+    // 3. Earth (scaled distance 0.225)
+    addBody("EARTH", BODY_EARTH, 5.9724e24, 0.225, 2.10, 0.014f, 365.25f);
 
-    // 4. Mars (1.524 AU)
-    addBody("MARS", BODY_MARS, 0.64171e24, 227.923e9, 3.45, 0.013f, 687.0f);
+    // 4. Mars (scaled distance 0.305)
+    addBody("MARS", BODY_MARS, 0.64171e24, 0.305, 3.45, 0.011f, 687.0f);
 
-    // 5. Jupiter (5.204 AU)
-    addBody("JUPITER", BODY_JUPITER, 1898.19e24, 778.570e9, 0.85, 0.038f, 4333.0f);
+    // 5. Jupiter (scaled distance 0.540)
+    addBody("JUPITER", BODY_JUPITER, 1898.19e24, 0.540, 0.85, 0.028f, 4333.0f);
 
-    // 6. Saturn (9.582 AU)
-    addBody("SATURN", BODY_SATURN, 568.34e24, 1433.529e9, 4.80, 0.032f, 10759.0f);
+    // 6. Saturn (scaled distance 0.690)
+    addBody("SATURN", BODY_SATURN, 568.34e24, 0.690, 4.80, 0.024f, 10759.0f);
 
-    // 7. Uranus (19.20 AU)
-    addBody("URANUS", BODY_URANUS, 86.813e24, 2872.463e9, 2.70, 0.024f, 30687.0f);
+    // 7. Uranus (scaled distance 0.840)
+    addBody("URANUS", BODY_URANUS, 86.813e24, 0.840, 2.70, 0.018f, 30687.0f);
 
-    // 8. Neptune (30.05 AU)
-    addBody("NEPTUNE", BODY_NEPTUNE, 102.413e24, 4495.060e9, 5.60, 0.023f, 60190.0f);
+    // 8. Neptune (scaled distance 0.980)
+    addBody("NEPTUNE", BODY_NEPTUNE, 102.413e24, 0.980, 5.60, 0.017f, 60190.0f);
 
-    // 9. Pluto (39.48 AU) - Dwarf Planet
-    addBody("PLUTO", BODY_PLUTO, 0.01303e24, 5906.380e9, 1.95, 0.009f, 90560.0f);
+    // 9. Pluto (scaled distance 1.120) - Dwarf Planet
+    addBody("PLUTO", BODY_PLUTO, 0.01303e24, 1.120, 1.95, 0.008f, 90560.0f);
 
-    // 10. Comet (e.g. 1P/Halley - highly eccentric orbit)
+    // 10. Comet 1P/Halley (eccentric orbit with perihelion near inner system)
     {
-        double a = 2.66e12; // semi-major axis (~17.8 AU)
-        double r = 1.35e12; // current position
+        double a = 0.685 * pMax;
+        double r = 0.400 * pMax;
         double angle = 0.65;
         double v = std::sqrt(G * M_sun * (2.0 / r - 1.0 / a));
         double posX = r * std::cos(angle);
         double posZ = r * std::sin(angle);
-        // Eccentric velocity vector has inward radial component
-        double velX = -v * std::sin(angle) - 0.3 * v * std::cos(angle);
-        double velZ = v * std::cos(angle) - 0.3 * v * std::sin(angle);
+        double velX = -v * std::sin(angle) - 0.25 * v * std::cos(angle);
+        double velZ = v * std::cos(angle) - 0.25 * v * std::sin(angle);
         this->positions.emplace_back((float)posX, 0.0f, (float)posZ);
         this->velocities.emplace_back((float)velX, 0.0f, (float)velZ);
         this->masses.emplace_back(2.2e14f);
@@ -115,28 +115,26 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
         BodyMetadata bm;
         bm.name = "COMET";
         bm.type = BODY_COMET;
-        bm.visualRadius = 0.008f;
+        bm.visualRadius = 0.007f;
         bm.semiMajorAxis = (float)a;
         bm.orbitalPeriodDays = 27500.0f;
         metadata.push_back(bm);
     }
 
-    // Determine counts for Asteroids and Kuiper Belt objects
-    size_t targetAsteroids = 600;
-    size_t targetKuiper = 400;
+    // Determine counts for N-body bodies (Asteroids, Kuiper belt, and Simulated Stars)
+    size_t totalN = (additionalBodies > 0) ? additionalBodies : 1600;
+    size_t targetAsteroids = totalN * 50 / 100; // ~50% in Asteroid Belt
+    size_t targetKuiper = totalN * 30 / 100;    // ~30% in Kuiper Belt
+    size_t targetStars = totalN - targetAsteroids - targetKuiper; // ~20% simulated Stars
 
-    if (additionalBodies > 0) {
-        targetAsteroids = additionalBodies * 6 / 10;
-        targetKuiper = additionalBodies - targetAsteroids;
-    }
-
-    std::mt19937 rng(42); // deterministic seed for beautiful reproducible distribution
+    std::mt19937 rng(42);
     std::uniform_real_distribution<double> angleDist(0.0, 2.0 * 3.141592653589793);
-    std::uniform_real_distribution<double> asteroidRDist(3.1e11, 4.9e11); // between Mars (2.28e11) & Jupiter (7.78e11)
-    std::uniform_real_distribution<double> asteroidYDist(-1.5e10, 1.5e10);
-    std::uniform_real_distribution<double> asteroidMassDist(1e15, 1e19);
 
-    // 11. Asteroid Belt
+    // 11. Asteroid Belt (N-body, between Mars 0.305 and Jupiter 0.540)
+    std::uniform_real_distribution<double> asteroidRDist(0.360 * pMax, 0.460 * pMax);
+    std::uniform_real_distribution<double> asteroidYDist(-0.015 * pMax, 0.015 * pMax);
+    std::uniform_real_distribution<double> asteroidMassDist(1e18, 1e21);
+
     for (size_t i = 0; i < targetAsteroids; ++i) {
         double r = asteroidRDist(rng);
         double theta = angleDist(rng);
@@ -163,10 +161,10 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
         this->numAsteroids++;
     }
 
-    // 12. Kuiper Belt (Outer-system icy bodies beyond Neptune)
-    std::uniform_real_distribution<double> kuiperRDist(4.6e12, 6.4e12); // beyond Neptune (4.5e12)
-    std::uniform_real_distribution<double> kuiperYDist(-3.0e10, 3.0e10);
-    std::uniform_real_distribution<double> kuiperMassDist(1e16, 5e20);
+    // 12. Kuiper Belt (N-body, outer system beyond Neptune 0.980 and Pluto 1.120)
+    std::uniform_real_distribution<double> kuiperRDist(1.060 * pMax, 1.350 * pMax);
+    std::uniform_real_distribution<double> kuiperYDist(-0.030 * pMax, 0.030 * pMax);
+    std::uniform_real_distribution<double> kuiperMassDist(1e19, 5e22);
 
     for (size_t i = 0; i < targetKuiper; ++i) {
         double r = kuiperRDist(rng);
@@ -192,6 +190,38 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
         bm.orbitalPeriodDays = (float)(2.0 * 3.14159265 * std::sqrt(r * r * r / (G * M_sun)) / 86400.0);
         metadata.push_back(bm);
         this->numKuiper++;
+    }
+
+    // 13. Simulated Stars / Cluster Bodies (N-body, gravitationally interacting massive stars)
+    std::uniform_real_distribution<double> starRDist(0.400 * pMax, 1.400 * pMax);
+    std::uniform_real_distribution<double> starYDist(-0.250 * pMax, 0.250 * pMax);
+    std::uniform_real_distribution<double> starMassDist(1e24, 1e27);
+
+    for (size_t i = 0; i < targetStars; ++i) {
+        double r = starRDist(rng);
+        double theta = angleDist(rng);
+        double y = starYDist(rng);
+        double dist3D = std::sqrt(r * r + y * y);
+        double v = std::sqrt(G * M_sun / dist3D);
+
+        double posX = r * std::cos(theta);
+        double posZ = r * std::sin(theta);
+        double velX = -v * std::sin(theta);
+        double velZ = v * std::cos(theta);
+
+        this->positions.emplace_back((float)posX, (float)y, (float)posZ);
+        this->velocities.emplace_back((float)velX, 0.0f, (float)velZ);
+        this->masses.emplace_back((float)starMassDist(rng));
+        this->size++;
+
+        BodyMetadata bm;
+        bm.name = "SIMULATED STAR";
+        bm.type = BODY_STAR;
+        bm.visualRadius = 0.005f;
+        bm.semiMajorAxis = (float)r;
+        bm.orbitalPeriodDays = (float)(2.0 * 3.14159265 * std::sqrt(dist3D * dist3D * dist3D / (G * M_sun)) / 86400.0);
+        metadata.push_back(bm);
+        this->numSimulatedStars++;
     }
 }
 

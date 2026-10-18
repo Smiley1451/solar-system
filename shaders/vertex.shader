@@ -39,10 +39,11 @@ void main(){
         logMinMass = log10(minMass);
         logMaxMass = log10(maxMass);
         if (isSolarSystem == 1) {
-            gl_Position = M_projection * M_view * M_model * vec4(inPosition.x, inPosition.y, inPosition.z, maxPos);
-            // Particle point size for asteroid and kuiper belt objects
+            vec3 normPos = inPosition / maxPos;
+            gl_Position = M_projection * M_view * M_model * vec4(normPos, 1.0);
+            // Particle point size for asteroid, kuiper, and simulated star bodies
             float massNorm = clamp((logInMass - logMinMass) / max(logMaxMass - logMinMass, 0.001f), 0.0f, 1.0f);
-            gl_PointSize = clamp(2.2f + massNorm * 3.8f, 1.5f, 6.0f);
+            gl_PointSize = clamp(3.2f + massNorm * 4.8f, 2.5f, 9.0f);
         } else {
             gl_Position = M_projection * M_view * M_model * vec4(inPosition.x, inPosition.z, inPosition.y, maxPos);
             gl_PointSize = float((logInMass - logMinMass) / max(logMaxMass - logMinMass, 0.001f) * MAX_ADD_RADIUS) + BASE_RADIUS;

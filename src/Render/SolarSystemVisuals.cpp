@@ -641,25 +641,24 @@ void SolarSystemVisuals::buildStarfield(int starCount) {
 }
 
 void SolarSystemVisuals::buildOrbitMeshes(float maxPos) {
-    // Semi-major axes for Mercury, Venus, Earth, Mars, Asteroid belt, Jupiter, Saturn, Uranus, Neptune, Pluto, Comet
-    std::vector<float> axes = {
-        57.909e9f,   // Mercury
-        108.209e9f,  // Venus
-        149.596e9f,  // Earth
-        227.923e9f,  // Mars
-        4.0e11f,     // Asteroid Belt center
-        778.570e9f,  // Jupiter
-        1433.529e9f, // Saturn
-        2872.463e9f, // Uranus
-        4495.060e9f, // Neptune
-        5906.380e9f  // Pluto
+    // Scaled radii for Mercury, Venus, Earth, Mars, Asteroid belt, Jupiter, Saturn, Uranus, Neptune, Pluto
+    std::vector<float> normRadii = {
+        0.095f, // Mercury (well outside Sun at 0.038)
+        0.155f, // Venus
+        0.225f, // Earth
+        0.305f, // Mars
+        0.410f, // Asteroid Belt center
+        0.540f, // Jupiter
+        0.690f, // Saturn
+        0.840f, // Uranus
+        0.980f, // Neptune
+        1.120f  // Pluto
     };
 
     orbitMeshes.clear();
     const int segments = 128;
 
-    for (float a : axes) {
-        float rNorm = a / maxPos;
+    for (float rNorm : normRadii) {
         std::vector<float> points;
 
         for (int i = 0; i <= segments; ++i) {
@@ -770,16 +769,16 @@ std::string SolarSystemVisuals::getBodyName(int bodyIndex) const {
 
 float SolarSystemVisuals::getBodyVisualRadius(int bodyIndex) const {
     static const float radii[] = {
-        0.045f, // Sun
-        0.010f, // Mercury
-        0.015f, // Venus
-        0.016f, // Earth
-        0.013f, // Mars
-        0.035f, // Jupiter
-        0.028f, // Saturn
-        0.020f, // Uranus
-        0.019f, // Neptune
-        0.009f, // Pluto
+        0.038f, // Sun (clear space before Mercury at 0.095)
+        0.009f, // Mercury
+        0.013f, // Venus
+        0.014f, // Earth
+        0.011f, // Mars
+        0.028f, // Jupiter
+        0.024f, // Saturn
+        0.018f, // Uranus
+        0.017f, // Neptune
+        0.008f, // Pluto
         0.007f  // Comet
     };
     if (bodyIndex >= 0 && bodyIndex <= 10) return radii[bodyIndex];
@@ -1130,25 +1129,25 @@ void SolarSystemVisuals::renderLabels(const glm::mat4 &view, const glm::mat4 &pr
     }
 
     // Belt labels
-    glm::vec4 astClip = vp * glm::vec4(0.4e11f / maxPos, 0.015f, 0.0f, 1.0f);
+    glm::vec4 astClip = vp * glm::vec4(0.41f, 0.015f, 0.0f, 1.0f);
     if (astClip.w > 0.001f) {
         glm::vec3 ndc = glm::vec3(astClip) / astClip.w;
         float winX = (ndc.x * 0.5f + 0.5f) * screenW;
         float winY = (ndc.y * 0.5f + 0.5f) * screenH;
-        glColor4f(0.85f, 0.78f, 0.55f, 0.75f);
+        glColor4f(0.95f, 0.85f, 0.60f, 0.85f);
         glRasterPos2f(winX - 45.0f, winY);
-        std::string txt = "★ ASTEROID BELT";
+        std::string txt = "★ ASTEROID BELT (N-BODY)";
         for (char c : txt) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10, c);
     }
 
-    glm::vec4 kuiperClip = vp * glm::vec4(5.4e12f / maxPos, 0.015f, 0.0f, 1.0f);
+    glm::vec4 kuiperClip = vp * glm::vec4(1.20f, 0.015f, 0.0f, 1.0f);
     if (kuiperClip.w > 0.001f) {
         glm::vec3 ndc = glm::vec3(kuiperClip) / kuiperClip.w;
         float winX = (ndc.x * 0.5f + 0.5f) * screenW;
         float winY = (ndc.y * 0.5f + 0.5f) * screenH;
-        glColor4f(0.70f, 0.75f, 0.95f, 0.75f);
+        glColor4f(0.75f, 0.85f, 1.0f, 0.85f);
         glRasterPos2f(winX - 45.0f, winY);
-        std::string txt = "★ KUIPER BELT";
+        std::string txt = "★ KUIPER BELT (N-BODY)";
         for (char c : txt) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10, c);
     }
 

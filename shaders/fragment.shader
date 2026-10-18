@@ -53,10 +53,22 @@ void main(){
             if (r2 > 1.0) {
                 discard;
             }
-            float alpha = (1.0 - r2 * r2) * 0.85;
+            float dist = sqrt(r2);
+            float alpha = smoothstep(1.0, 0.08, dist) * 0.95;
             float t = clamp((logInMass - logMinMass) / max(logMaxMass - logMinMass, 0.001), 0.0, 1.0);
-            vec3 rockyColor = mix(vec3(0.70, 0.67, 0.62), vec3(0.88, 0.82, 0.65), t);
-            fragColor = vec4(rockyColor, alpha);
+            
+            vec3 particleColor;
+            if (t > 0.65) {
+                // High mass simulated stars: radiant golden / diamond blue-white core
+                particleColor = mix(vec3(1.0, 0.92, 0.65), vec3(0.85, 0.95, 1.0), (t - 0.65) * 2.85);
+            } else if (t > 0.30) {
+                // Kuiper belt icy bodies: sparkling pale cyan-white
+                particleColor = mix(vec3(0.65, 0.82, 0.98), vec3(0.88, 0.95, 1.0), (t - 0.30) * 2.85);
+            } else {
+                // Asteroid belt rocky bodies: warm stony bronze / amber
+                particleColor = mix(vec3(0.85, 0.74, 0.55), vec3(1.00, 0.85, 0.60), t * 3.33);
+            }
+            fragColor = vec4(particleColor, alpha);
         } else {
             float degree = float(2.0 * M_PI * (logInMass - logMinMass) / (logMaxMass + EPSILON - logMinMass));
             vec3 pixelColor = hsv2rgb(degree, 1.0, 1.0);
