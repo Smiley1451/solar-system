@@ -1,5 +1,5 @@
 kernel void nbody_force_calculation(global float *positions, global float *velocities, global float *masses, int nrBodies) {
-    const int timestep = 86400; // 24*60*60, seconds in a day
+    const int timestep = 14400; // 4 hours per step for smooth, stable, majestic Keplerian orbits
     const int id = get_global_id(0);
     const int id3 = id * 3;
     const int id31 = id3 + 1;

@@ -1,6 +1,6 @@
 kernel void updateKernel(global float *positions, global float *velocities, int nrBodies) {
     // updates positions based on velocities of a body and timestep
-    float timestep = 86400.0f; // seconds in a day
+    float timestep = 14400.0f; // 4 hours per step
     int i = get_global_id(0);
 
     if (i < nrBodies) {

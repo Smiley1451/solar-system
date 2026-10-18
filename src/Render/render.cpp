@@ -301,8 +301,19 @@ void render() {
 
     // Numerical gravitational physics integration
     if (!isPaused) {
-        for (int step = 0; step < simStepsPerFrame; ++step) {
-            calcSimulationStep(useCPU, useGPU);
+        static int subFrameCounter = 0;
+        subFrameCounter++;
+        if (simSpeedMultiplier < 1.0f) {
+            int interval = (int)std::round(1.0f / simSpeedMultiplier);
+            if (interval < 1) interval = 1;
+            if (subFrameCounter % interval == 0) {
+                calcSimulationStep(useCPU, useGPU);
+            }
+        } else {
+            int steps = (int)simSpeedMultiplier;
+            for (int step = 0; step < steps; ++step) {
+                calcSimulationStep(useCPU, useGPU);
+            }
         }
     }
 }

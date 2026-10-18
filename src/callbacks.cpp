@@ -58,14 +58,20 @@ void glKeyboardCallback(unsigned char key, int x, int y) {
 
         case '+':
         case '=': // Faster simulation
-            simStepsPerFrame = std::min(simStepsPerFrame * 2, 16);
-            simSpeedMultiplier = (float)simStepsPerFrame;
+            if (simSpeedMultiplier < 1.0f) {
+                simSpeedMultiplier *= 2.0f;
+            } else if (simSpeedMultiplier < 8.0f) {
+                simSpeedMultiplier = std::min(simSpeedMultiplier * 2.0f, 8.0f);
+            }
             break;
 
         case '-':
         case '_': // Slower simulation
-            simStepsPerFrame = std::max(simStepsPerFrame / 2, 1);
-            simSpeedMultiplier = (float)simStepsPerFrame;
+            if (simSpeedMultiplier > 1.0f) {
+                simSpeedMultiplier /= 2.0f;
+            } else if (simSpeedMultiplier > 0.125f) {
+                simSpeedMultiplier /= 2.0f;
+            }
             break;
 
         case 'r':

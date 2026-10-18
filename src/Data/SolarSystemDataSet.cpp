@@ -130,9 +130,9 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
     std::mt19937 rng(42);
     std::uniform_real_distribution<double> angleDist(0.0, 2.0 * 3.141592653589793);
 
-    // 11. Asteroid Belt (N-body, between Mars 0.305 and Jupiter 0.540)
+    // 11. Asteroid Belt (N-body, between Mars 0.305 and Jupiter 0.540, planar disc)
     std::uniform_real_distribution<double> asteroidRDist(0.360 * pMax, 0.460 * pMax);
-    std::uniform_real_distribution<double> asteroidYDist(-0.015 * pMax, 0.015 * pMax);
+    std::uniform_real_distribution<double> asteroidYDist(-0.005 * pMax, 0.005 * pMax);
     std::uniform_real_distribution<double> asteroidMassDist(1e18, 1e21);
 
     for (size_t i = 0; i < targetAsteroids; ++i) {
@@ -161,9 +161,9 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
         this->numAsteroids++;
     }
 
-    // 12. Kuiper Belt (N-body, outer system beyond Neptune 0.980 and Pluto 1.120)
+    // 12. Kuiper Belt (N-body, outer planar disc beyond Neptune 0.980 and Pluto 1.120)
     std::uniform_real_distribution<double> kuiperRDist(1.060 * pMax, 1.350 * pMax);
-    std::uniform_real_distribution<double> kuiperYDist(-0.030 * pMax, 0.030 * pMax);
+    std::uniform_real_distribution<double> kuiperYDist(-0.008 * pMax, 0.008 * pMax);
     std::uniform_real_distribution<double> kuiperMassDist(1e19, 5e22);
 
     for (size_t i = 0; i < targetKuiper; ++i) {
@@ -192,17 +192,16 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
         this->numKuiper++;
     }
 
-    // 13. Simulated Stars / Outer Celestial Bodies (N-body gravitationally interacting)
-    std::uniform_real_distribution<double> starRDist(0.600 * pMax, 1.450 * pMax);
-    std::uniform_real_distribution<double> starYDist(-0.200 * pMax, 0.200 * pMax);
-    std::uniform_real_distribution<double> starMassDist(1e19, 5e22);
+    // 13. Outer Oort Cloud Bodies (N-body, distant outer realm beyond Pluto)
+    std::uniform_real_distribution<double> starRDist(1.250 * pMax, 1.600 * pMax);
+    std::uniform_real_distribution<double> starYDist(-0.015 * pMax, 0.015 * pMax);
+    std::uniform_real_distribution<double> starMassDist(1e18, 1e21);
 
     for (size_t i = 0; i < targetStars; ++i) {
         double r = starRDist(rng);
         double theta = angleDist(rng);
         double y = starYDist(rng);
-        double dist3D = std::sqrt(r * r + y * y);
-        double v = std::sqrt(G * M_sun / dist3D);
+        double v = std::sqrt(G * M_sun / r);
 
         double posX = r * std::cos(theta);
         double posZ = r * std::sin(theta);
@@ -215,11 +214,11 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
         this->size++;
 
         BodyMetadata bm;
-        bm.name = "SIMULATED STAR";
+        bm.name = "OORT CLOUD OBJECT";
         bm.type = BODY_STAR;
-        bm.visualRadius = 0.005f;
+        bm.visualRadius = 0.004f;
         bm.semiMajorAxis = (float)r;
-        bm.orbitalPeriodDays = (float)(2.0 * 3.14159265 * std::sqrt(dist3D * dist3D * dist3D / (G * M_sun)) / 86400.0);
+        bm.orbitalPeriodDays = (float)(2.0 * 3.14159265 * std::sqrt(r * r * r / (G * M_sun)) / 86400.0);
         metadata.push_back(bm);
         this->numSimulatedStars++;
     }

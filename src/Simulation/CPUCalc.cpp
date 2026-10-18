@@ -37,7 +37,7 @@ extern AbstractData *dataSet;
 #define v dataSet->velocities
 #define m dataSet->masses
 
-float dt = 86400;
+float dt = 14400.0f; // 4 hours per step for smooth, majestic orbital motion
 float BIG_G = 6.67e-11;
 
 double simulateCPU() {

@@ -1,4 +1,4 @@
-constant int timestep = 86400;///24*60*60, seconds in a day
+constant int timestep = 14400; // 4 hours per step
 constant float G = -6.67e-11; //graviational constant
 
 /*
