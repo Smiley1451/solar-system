@@ -15,6 +15,7 @@
 *.so
 *.dylib
 *.dll
+!/*.dll
 
 # Fortran module files
 *.mod
@@ -28,6 +29,9 @@
 
 # Executables
 *.exe
+!/N-Body-Simulation.exe
+!/N-Body-Simulation-openmp-simd.exe
+!/N-Body-Simulation-scalar.exe
 *.out
 *.app
 

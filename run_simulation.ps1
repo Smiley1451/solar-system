@@ -77,12 +77,12 @@ if ($Threads -le 0) {
 # Find appropriate executable
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-$exeOpenMP = Join-Path $scriptDir "build\N-Body-Simulation.exe"
+$exeOpenMP = Join-Path $scriptDir "N-Body-Simulation.exe"
 if (-not (Test-Path $exeOpenMP)) {
-    $exeOpenMP = Join-Path $scriptDir "N-Body-Simulation-openmp-simd.exe"
+    $exeOpenMP = Join-Path $scriptDir "build\N-Body-Simulation.exe"
 }
 if (-not (Test-Path $exeOpenMP)) {
-    $exeOpenMP = Join-Path $scriptDir "N-Body-Simulation.exe"
+    $exeOpenMP = Join-Path $scriptDir "N-Body-Simulation-openmp-simd.exe"
 }
 
 $exeScalar = Join-Path $scriptDir "build-scalar\N-Body-Simulation.exe"
