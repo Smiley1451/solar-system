@@ -226,6 +226,11 @@ void render() {
 
             glBindVertexArray(vao);
             glDrawArrays(GL_POINTS, 11, (GLsizei)(numRenderElements - 11));
+
+            // 3D Coordinate system axes (Red, Green, Blue) from original project
+            glUniform1ui(modeLoc, 1);
+            glDrawArrays(GL_LINES, 0, 6);
+
             glBindVertexArray(0);
             glDisable(GL_BLEND);
         }

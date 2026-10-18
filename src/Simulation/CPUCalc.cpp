@@ -44,13 +44,14 @@ double simulateCPU() {
     Core::TimeSpan timeCPU1 = Core::getCurrentTime();
 
 #pragma omp parallel for default(none) shared(dataSet, dt, BIG_G)
-    for (std::size_t i = 0; i < dataSet->getSize(); ++i) {
+    for (std::size_t i = 1; i < dataSet->getSize(); ++i) {
         float3 acceleration(0.0);
         for (size_t j = 0; j < dataSet->getSize(); ++j) {
             if (i != j) {
                 float3 r_vector = p[i] - p[j];
-                float r_mag = std::sqrt(dot(r_vector, r_vector));
-                float acc = -1.0f * BIG_G * (m[j] / std::pow(r_mag, 2.0));
+                float r_mag_sq = dot(r_vector, r_vector) + 1.0e14f;
+                float r_mag = std::sqrt(r_mag_sq);
+                float acc = -1.0f * BIG_G * (m[j] / r_mag_sq);
                 float3 r_unit_vector = r_vector / r_mag;
                 acceleration += r_unit_vector * acc;
             }
@@ -58,11 +59,12 @@ double simulateCPU() {
         v[i] += acceleration * dt;
     }
 
-
 #pragma omp parallel for default(none) shared(dataSet, dt)
-    for (std::size_t i = 0; i < dataSet->getSize(); ++i) {
+    for (std::size_t i = 1; i < dataSet->getSize(); ++i) {
         p[i] += v[i] * dt;
     }
+    p[0] = float3(0.0f);
+    v[0] = float3(0.0f);
 
     Core::TimeSpan timeCPU2 = Core::getCurrentTime();
     Core::TimeSpan executionTime = timeCPU2 - timeCPU1;

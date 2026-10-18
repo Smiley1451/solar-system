@@ -54,20 +54,26 @@ void main(){
                 discard;
             }
             float dist = sqrt(r2);
-            float alpha = smoothstep(1.0, 0.08, dist) * 0.95;
+            // Solid bright core with radiant outer glow
+            float core = clamp(1.0 - dist * 1.4, 0.0, 1.0);
+            float glow = pow(1.0 - dist, 1.6);
+            float alpha = clamp(core * 0.85 + glow * 0.65, 0.0, 1.0);
+
             float t = clamp((logInMass - logMinMass) / max(logMaxMass - logMinMass, 0.001), 0.0, 1.0);
-            
+
+            // Rich vibrant colors across celestial categories:
+            // High mass: electric cyan & diamond blue-white
+            // Mid mass: fiery gold & emerald
+            // Low mass: warm amber & ruby-bronze
             vec3 particleColor;
-            if (t > 0.65) {
-                // High mass simulated stars: radiant golden / diamond blue-white core
-                particleColor = mix(vec3(1.0, 0.92, 0.65), vec3(0.85, 0.95, 1.0), (t - 0.65) * 2.85);
+            if (t > 0.60) {
+                particleColor = mix(vec3(0.4, 0.9, 1.0), vec3(1.0, 1.0, 1.0), (t - 0.60) * 2.5);
             } else if (t > 0.30) {
-                // Kuiper belt icy bodies: sparkling pale cyan-white
-                particleColor = mix(vec3(0.65, 0.82, 0.98), vec3(0.88, 0.95, 1.0), (t - 0.30) * 2.85);
+                particleColor = mix(vec3(0.3, 1.0, 0.7), vec3(1.0, 0.85, 0.3), (t - 0.30) * 3.33);
             } else {
-                // Asteroid belt rocky bodies: warm stony bronze / amber
-                particleColor = mix(vec3(0.85, 0.74, 0.55), vec3(1.00, 0.85, 0.60), t * 3.33);
+                particleColor = mix(vec3(1.0, 0.45, 0.15), vec3(1.0, 0.85, 0.3), t * 3.33);
             }
+
             fragColor = vec4(particleColor, alpha);
         } else {
             float degree = float(2.0 * M_PI * (logInMass - logMinMass) / (logMaxMass + EPSILON - logMinMass));

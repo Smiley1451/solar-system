@@ -33,28 +33,18 @@ float log10(float x){
 }
 
 void main(){
-    // Used for rendering the bodies
     if (mode == 0u){
         logInMass = log10(inMass);
         logMinMass = log10(minMass);
         logMaxMass = log10(maxMass);
-        if (isSolarSystem == 1) {
-            vec3 normPos = inPosition / maxPos;
-            gl_Position = M_projection * M_view * M_model * vec4(normPos, 1.0);
-            // Particle point size for asteroid, kuiper, and simulated star bodies
-            float massNorm = clamp((logInMass - logMinMass) / max(logMaxMass - logMinMass, 0.001f), 0.0f, 1.0f);
-            gl_PointSize = clamp(3.2f + massNorm * 4.8f, 2.5f, 9.0f);
-        } else {
-            gl_Position = M_projection * M_view * M_model * vec4(inPosition.x, inPosition.z, inPosition.y, maxPos);
-            gl_PointSize = float((logInMass - logMinMass) / max(logMaxMass - logMinMass, 0.001f) * MAX_ADD_RADIUS) + BASE_RADIUS;
-            if(zoomFactor > 1.0f && logInMass >= 0.7f * logMaxMass){
-                gl_PointSize *= zoomFactor;
-            } else if (zoomFactor < 1.0f){
-                gl_PointSize *= zoomFactor;
-            }
-        }
+        
+        vec3 normPos = inPosition / maxPos;
+        gl_Position = M_projection * M_view * M_model * vec4(normPos, 1.0);
+        
+        // Point size scaling: prominent and bold (from 4.0 up to 18.0 pixels)
+        float massNorm = clamp((logInMass - logMinMass) / max(logMaxMass - logMinMass, 0.001f), 0.0f, 1.0f);
+        gl_PointSize = clamp(4.0f + massNorm * 12.0f, 3.5f, 18.0f);
     }
-    // Used for rendering the coordinate system axes
     else if (mode == 1u){
         gl_Position = M_projection * M_view * M_model * vec4(lineCoordinates, 1.0f);
         lColor = lineColor;

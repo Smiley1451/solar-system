@@ -192,10 +192,10 @@ SolarSystemDataSet::SolarSystemDataSet(std::size_t additionalBodies,
         this->numKuiper++;
     }
 
-    // 13. Simulated Stars / Cluster Bodies (N-body, gravitationally interacting massive stars)
-    std::uniform_real_distribution<double> starRDist(0.400 * pMax, 1.400 * pMax);
-    std::uniform_real_distribution<double> starYDist(-0.250 * pMax, 0.250 * pMax);
-    std::uniform_real_distribution<double> starMassDist(1e24, 1e27);
+    // 13. Simulated Stars / Outer Celestial Bodies (N-body gravitationally interacting)
+    std::uniform_real_distribution<double> starRDist(0.600 * pMax, 1.450 * pMax);
+    std::uniform_real_distribution<double> starYDist(-0.200 * pMax, 0.200 * pMax);
+    std::uniform_real_distribution<double> starMassDist(1e19, 5e22);
 
     for (size_t i = 0; i < targetStars; ++i) {
         double r = starRDist(rng);
