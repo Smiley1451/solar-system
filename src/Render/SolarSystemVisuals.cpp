@@ -11,6 +11,7 @@
 #include <random>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -314,9 +315,9 @@ void main() {
     viewNoTrans[3] = vec4(0.0, 0.0, 0.0, 1.0);
 
     gl_Position = M_projection * viewNoTrans * vec4(inPos, 1.0);
-    // Twinkle modulation
-    float twinkle = sin(time * 3.5 + inPos.x * 20.0 + inPos.y * 30.0) * 0.25 + 0.75;
-    gl_PointSize = inSize * twinkle;
+    // Smooth multi-frequency twinkle
+    float twinkle = sin(time * 2.8 + inPos.x * 14.0 + inPos.y * 24.0) * 0.22 + 0.78;
+    gl_PointSize = clamp(inSize * twinkle, 2.5, 7.5);
     vColor = inColor;
     vTwinkle = twinkle;
 }
@@ -328,12 +329,103 @@ in float vTwinkle;
 out vec4 fragColor;
 
 void main() {
-    vec2 circ = gl_PointCoord - vec2(0.5);
-    float dist = length(circ);
-    if (dist > 0.5) {
-        discard;
+    float alpha = vTwinkle;
+    if (gl_PointCoord != vec2(0.0, 0.0)) {
+        vec2 circ = gl_PointCoord - vec2(0.5);
+        float dist = length(circ);
+        if (dist > 0.5) {
+            discard;
+        }
+        alpha = smoothstep(0.5, 0.05, dist) * vTwinkle;
     }
-    float alpha = smoothstep(0.5, 0.1, dist) * vTwinkle;
+    fragColor = vec4(vColor, alpha);
+}
+)";
+
+static const char* PARTICLE_VS = R"(#version 330 core
+layout(location = 0) in vec3 inPos;
+layout(location = 1) in float inMass;
+
+uniform mat4 M_view;
+uniform mat4 M_projection;
+uniform vec3 camPos;
+uniform float maxPos;
+uniform float time;
+
+out vec3 vColor;
+out float vType; // 0: Asteroid, 1: Kuiper, 2: Simulated Star
+
+void main() {
+    vec3 normPos = inPos / maxPos;
+    gl_Position = M_projection * M_view * vec4(normPos, 1.0);
+
+    float rOrbit = length(normPos.xz);
+    float absY = abs(normPos.y);
+    float distToCam = length(camPos - normPos);
+    float distAtten = 1.75 / max(distToCam, 0.35);
+
+    // 1. Asteroid Belt (r ~ 0.33 to 0.49, near orbital plane)
+    if (rOrbit >= 0.33 && rOrbit <= 0.49 && absY < 0.06) {
+        vType = 0.0;
+        float hash = fract(sin(dot(normPos.xz, vec2(12.9898, 78.233))) * 43758.5453);
+        if (hash < 0.38) {
+            vColor = vec3(1.0, 0.82, 0.42); // Golden amber
+        } else if (hash < 0.72) {
+            vColor = vec3(0.95, 0.62, 0.28); // Ochre bronze
+        } else {
+            vColor = vec3(0.88, 0.82, 0.72); // Silicate stone
+        }
+        gl_PointSize = clamp(5.4 * distAtten, 4.0, 13.0);
+    }
+    // 2. Kuiper Belt (r >= 0.98, near orbital plane)
+    else if (rOrbit >= 0.98 && absY < 0.12) {
+        vType = 1.0;
+        float hash = fract(sin(dot(normPos.xz, vec2(37.123, 91.456))) * 28461.123);
+        if (hash < 0.42) {
+            vColor = vec3(0.40, 0.88, 1.0); // Electric cyan
+        } else if (hash < 0.76) {
+            vColor = vec3(0.72, 0.94, 1.0); // Icy blue-white
+        } else {
+            vColor = vec3(0.50, 1.0, 0.82); // Aquamarine
+        }
+        gl_PointSize = clamp(4.8 * distAtten, 3.6, 11.5);
+    }
+    // 3. Simulated Stars / Outer halo bodies
+    else {
+        vType = 2.0;
+        float hash = fract(sin(dot(normPos.xy, vec2(53.412, 19.821))) * 61829.341);
+        if (hash < 0.35) {
+            vColor = vec3(1.0, 0.96, 0.90); // Diamond white
+        } else if (hash < 0.70) {
+            vColor = vec3(0.55, 0.82, 1.0); // Sapphire star
+        } else {
+            vColor = vec3(1.0, 0.85, 0.48); // Golden star
+        }
+        float twinkle = sin(time * 3.2 + normPos.x * 12.0 + normPos.z * 18.0) * 0.18 + 0.82;
+        gl_PointSize = clamp(6.2 * distAtten * twinkle, 4.5, 15.0);
+    }
+}
+)";
+
+static const char* PARTICLE_FS = R"(#version 330 core
+in vec3 vColor;
+in float vType;
+out vec4 fragColor;
+
+void main() {
+    float alpha = 1.0;
+    if (gl_PointCoord != vec2(0.0, 0.0)) {
+        vec2 circ = 2.0 * gl_PointCoord - vec2(1.0);
+        float r2 = dot(circ, circ);
+        if (r2 > 1.0) {
+            discard;
+        }
+        float dist = sqrt(r2);
+        // Radiant bright core with smooth glowing halo
+        float core = clamp(1.0 - dist * 1.5, 0.0, 1.0);
+        float glow = pow(clamp(1.0 - dist, 0.0, 1.0), 1.5);
+        alpha = clamp(core * 0.90 + glow * 0.70, 0.0, 1.0);
+    }
     fragColor = vec4(vColor, alpha);
 }
 )";
@@ -437,6 +529,9 @@ void SolarSystemVisuals::buildShaders() {
 
     cometShader = linkProgram(compileShader(GL_VERTEX_SHADER, COMET_VS),
                              compileShader(GL_FRAGMENT_SHADER, COMET_FS));
+
+    particleShader = linkProgram(compileShader(GL_VERTEX_SHADER, PARTICLE_VS),
+                                 compileShader(GL_FRAGMENT_SHADER, PARTICLE_FS));
 }
 
 void SolarSystemVisuals::buildSphere(int slices, int stacks) {
@@ -581,21 +676,23 @@ void SolarSystemVisuals::buildSaturnRings(int segments) {
 }
 
 void SolarSystemVisuals::buildStarfield(int starCount) {
+    if (starCount < 8000) starCount = 8000;
     starfield.starCount = starCount;
     std::vector<float> data; // pos(3), color(3), size(1) -> 7 floats
 
     std::mt19937 rng(1337);
     std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * (float)M_PI);
     std::uniform_real_distribution<float> zDist(-1.0f, 1.0f);
+    std::uniform_real_distribution<float> rDist(115.0f, 215.0f);
     std::uniform_real_distribution<float> colorDist(0.0f, 1.0f);
-    std::uniform_real_distribution<float> sizeDist(1.2f, 3.2f);
-
-    float radius = 100.0f;
+    std::uniform_real_distribution<float> sizeDist(2.5f, 6.5f);
+    std::uniform_real_distribution<float> milkyDist(-0.25f, 0.25f);
 
     for (int i = 0; i < starCount; ++i) {
         float phi = angleDist(rng);
-        float z = zDist(rng);
-        float theta = std::asin(z);
+        float z = (i < starCount / 3) ? milkyDist(rng) : zDist(rng);
+        float theta = std::asin(std::clamp(z, -0.999f, 0.999f));
+        float radius = rDist(rng);
 
         float x = radius * std::cos(theta) * std::cos(phi);
         float y = radius * std::sin(theta);
@@ -603,14 +700,16 @@ void SolarSystemVisuals::buildStarfield(int starCount) {
 
         float c = colorDist(rng);
         glm::vec3 col;
-        if (c < 0.25f) {
-            col = glm::vec3(0.72f, 0.85f, 1.0f); // Blue-white
+        if (c < 0.22f) {
+            col = glm::vec3(0.68f, 0.82f, 1.0f); // Class O/B Hot Blue-white
         } else if (c < 0.65f) {
-            col = glm::vec3(0.98f, 0.98f, 1.0f); // Pure white
+            col = glm::vec3(0.96f, 0.98f, 1.0f); // Class A Pure brilliant white
         } else if (c < 0.85f) {
-            col = glm::vec3(1.0f, 0.92f, 0.75f); // Warm yellow
+            col = glm::vec3(1.0f, 0.94f, 0.78f); // Class F/G Solar warm yellow
+        } else if (c < 0.95f) {
+            col = glm::vec3(1.0f, 0.70f, 0.42f); // Class K Orange giant
         } else {
-            col = glm::vec3(1.0f, 0.65f, 0.45f); // Red giant
+            col = glm::vec3(1.0f, 0.45f, 0.32f); // Class M Red giant
         }
 
         float sz = sizeDist(rng);
@@ -711,6 +810,8 @@ void SolarSystemVisuals::init(float maxPosition) {
     glEnableVertexAttribArray(1);
     glBindVertexArray(0);
 
+    glGenVertexArrays(1, &particleVao);
+
     initialized = true;
 }
 
@@ -737,12 +838,15 @@ void SolarSystemVisuals::cleanup() {
     glDeleteVertexArrays(1, &trailVao);
     glDeleteBuffers(1, &trailVbo);
 
+    glDeleteVertexArrays(1, &particleVao);
+
     glDeleteProgram(sunShader);
     glDeleteProgram(planetShader);
     glDeleteProgram(ringShader);
     glDeleteProgram(starfieldShader);
     glDeleteProgram(simpleLineShader);
     glDeleteProgram(cometShader);
+    glDeleteProgram(particleShader);
 
     initialized = false;
 }
@@ -761,9 +865,11 @@ glm::vec3 SolarSystemVisuals::getBodyNormalizedPosition(int bodyIndex, const flo
 std::string SolarSystemVisuals::getBodyName(int bodyIndex) const {
     static const char* names[] = {
         "SUN", "MERCURY", "VENUS", "EARTH", "MARS",
-        "JUPITER", "SATURN", "URANUS", "NEPTUNE", "PLUTO", "COMET"
+        "JUPITER", "SATURN", "URANUS", "NEPTUNE", "PLUTO", "COMET 1P/HALLEY"
     };
     if (bodyIndex >= 0 && bodyIndex <= 10) return names[bodyIndex];
+    if (bodyIndex == 11) return "ASTEROID BELT REGION";
+    if (bodyIndex == 12) return "KUIPER BELT REGION";
     return "SOLAR SYSTEM OVERVIEW";
 }
 
@@ -789,7 +895,10 @@ void SolarSystemVisuals::renderStarfield(const glm::mat4 &view, const glm::mat4 
     if (!showStarfield) return;
 
     glDisable(GL_DEPTH_TEST);
+    glDisable(GL_POINT_SMOOTH);
     glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_POINT_SPRITE);
+    glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
@@ -1066,6 +1175,44 @@ void SolarSystemVisuals::renderCelestialBodies(const glm::mat4 &view, const glm:
     glBindVertexArray(0);
 }
 
+void SolarSystemVisuals::renderNBodyParticles(const glm::mat4 &view, const glm::mat4 &proj,
+                                             const glm::vec3 &camPos, GLuint vbo, GLuint mbo,
+                                             size_t totalCount, float maxPos, float timeSec) {
+    if (!showParticles || totalCount <= 11) return;
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE); // Allow particles to glow without blocking each other
+    glDisable(GL_POINT_SMOOTH);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_POINT_SPRITE);
+    glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive luminous glow for celestial points
+
+    glUseProgram(particleShader);
+    glUniformMatrix4fv(glGetUniformLocation(particleShader, "M_view"), 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(glGetUniformLocation(particleShader, "M_projection"), 1, GL_FALSE, glm::value_ptr(proj));
+    glUniform3fv(glGetUniformLocation(particleShader, "camPos"), 1, glm::value_ptr(camPos));
+    glUniform1f(glGetUniformLocation(particleShader, "maxPos"), maxPos);
+    glUniform1f(glGetUniformLocation(particleShader, "time"), timeSec);
+
+    glBindVertexArray(particleVao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, mbo);
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(1);
+
+    // Render bodies 11 to totalCount-1 (Asteroid Belt, Kuiper Belt, Simulated Stars)
+    glDrawArrays(GL_POINTS, 11, (GLsizei)(totalCount - 11));
+
+    glBindVertexArray(0);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+}
+
 void SolarSystemVisuals::renderLabels(const glm::mat4 &view, const glm::mat4 &proj,
                                      const float *majorPositions, float maxPos,
                                      int screenW, int screenH) {
@@ -1159,7 +1306,9 @@ void SolarSystemVisuals::renderLabels(const glm::mat4 &view, const glm::mat4 &pr
 }
 
 void SolarSystemVisuals::renderHUD(int screenW, int screenH, bool isPaused, float simSpeed,
-                                  int bodyCount, const std::string &backend, int focusIndex,
+                                  int totalBodies, int submittedBodies, int renderedBodies,
+                                  int asteroidCount, int kuiperCount, int starCount,
+                                  const std::string &backend, int focusIndex,
                                   float fps, float calcTimeMs) {
     if (!showHUD) return;
 
@@ -1176,17 +1325,25 @@ void SolarSystemVisuals::renderHUD(int screenW, int screenH, bool isPaused, floa
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Top Header Banner (semi-transparent dark gradient)
-    glColor4f(0.04f, 0.06f, 0.12f, 0.82f);
+    // Top Header Banner (semi-transparent dark gradient with 3 lines of diagnostic info)
+    glColor4f(0.03f, 0.05f, 0.10f, 0.88f);
     glBegin(GL_QUADS);
-    glVertex2f(0.0f, screenH - 52.0f);
-    glVertex2f(screenW, screenH - 52.0f);
+    glVertex2f(0.0f, screenH - 72.0f);
+    glVertex2f(screenW, screenH - 72.0f);
     glVertex2f(screenW, screenH);
     glVertex2f(0.0f, screenH);
     glEnd();
 
+    // Top accent border line (cyan)
+    glColor4f(0.20f, 0.60f, 0.95f, 0.65f);
+    glLineWidth(1.5f);
+    glBegin(GL_LINES);
+    glVertex2f(0.0f, screenH - 72.0f);
+    glVertex2f(screenW, screenH - 72.0f);
+    glEnd();
+
     // Bottom Controls Banner
-    glColor4f(0.04f, 0.06f, 0.12f, 0.82f);
+    glColor4f(0.03f, 0.05f, 0.10f, 0.88f);
     glBegin(GL_QUADS);
     glVertex2f(0.0f, 0.0f);
     glVertex2f(screenW, 0.0f);
@@ -1194,43 +1351,68 @@ void SolarSystemVisuals::renderHUD(int screenW, int screenH, bool isPaused, floa
     glVertex2f(0.0f, 36.0f);
     glEnd();
 
+    // Bottom accent border line
+    glColor4f(0.20f, 0.60f, 0.95f, 0.50f);
+    glBegin(GL_LINES);
+    glVertex2f(0.0f, 36.0f);
+    glVertex2f(screenW, 36.0f);
+    glEnd();
+
     // Top Title & Info
-    glColor4f(0.35f, 0.80f, 1.0f, 1.0f);
-    glRasterPos2f(16.0f, screenH - 22.0f);
+    glColor4f(0.35f, 0.85f, 1.0f, 1.0f);
+    glRasterPos2f(16.0f, screenH - 18.0f);
     std::string title = "SOLAR SYSTEM 3D SIMULATION - REAL-TIME OPENCL N-BODY GRAVITY";
     for (char c : title) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
 
+    // Line 2: Comprehensive Simulation and Pipeline Metrics
     std::ostringstream ssTop;
     ssTop << "Status: " << (isPaused ? "[PAUSED]" : "[RUNNING]")
-          << " | Time Step: " << std::fixed << std::setprecision(1) << simSpeed << "x (1 day/frame)"
-          << " | Bodies: " << bodyCount
-          << " | Backend: " << backend;
+          << " | Step: " << std::fixed << std::setprecision(1) << simSpeed << "x (1 day/step)"
+          << " | Total Bodies: " << totalBodies
+          << " | Submitted: " << submittedBodies
+          << " | Rendered: " << renderedBodies;
+    if (asteroidCount > 0 || kuiperCount > 0) {
+        ssTop << " (Major: 11, Asteroids: " << asteroidCount
+              << ", Kuiper: " << kuiperCount << ", Stars: " << starCount << ")";
+    }
+    ssTop << " | Engine: " << backend;
     std::string infoTop = ssTop.str();
 
-    glColor4f(0.85f, 0.88f, 0.95f, 0.95f);
-    glRasterPos2f(16.0f, screenH - 42.0f);
+    glColor4f(0.85f, 0.90f, 0.98f, 0.95f);
+    glRasterPos2f(16.0f, screenH - 36.0f);
     for (char c : infoTop) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10, c);
 
-    // Right-aligned performance stats
+    // Line 3: Visual Classification Legend
+    std::string legendStr = "Legend: [Sun/Planets: 3D Meshes] [Asteroids: Warm Amber Points] [Kuiper Belt: Crystalline Cyan] [Simulated Stars: Diamond White] [Deep Sky: Starfield (" +
+                            std::to_string(starfield.starCount) + " Stars)]";
+    glColor4f(1.0f, 0.82f, 0.45f, 0.90f);
+    glRasterPos2f(16.0f, screenH - 54.0f);
+    for (char c : legendStr) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10, c);
+
+    // Right-aligned performance & focus stats
     std::ostringstream ssPerf;
     ssPerf << "FPS: " << std::fixed << std::setprecision(1) << fps
            << " | Calc: " << std::setprecision(2) << calcTimeMs << " ms";
     std::string perfStr = ssPerf.str();
 
-    glColor4f(0.40f, 1.0f, 0.60f, 1.0f);
-    glRasterPos2f(screenW - 200.0f, screenH - 22.0f);
+    glColor4f(0.35f, 1.0f, 0.65f, 1.0f);
+    glRasterPos2f(screenW - 220.0f, screenH - 18.0f);
     for (char c : perfStr) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, c);
 
-    // Camera target display on right
     std::string targetStr = "Focus: [" + getBodyName(focusIndex) + "]";
     glColor4f(1.0f, 0.85f, 0.35f, 1.0f);
-    glRasterPos2f(screenW - 200.0f, screenH - 42.0f);
+    glRasterPos2f(screenW - 220.0f, screenH - 36.0f);
     for (char c : targetStr) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10, c);
 
+    std::string pipelineStr = "Active Pipeline: " + std::to_string(renderedBodies) + " / " + std::to_string(totalBodies) + " (100% Rendered)";
+    glColor4f(0.50f, 0.90f, 1.0f, 0.95f);
+    glRasterPos2f(screenW - 220.0f, screenH - 54.0f);
+    for (char c : pipelineStr) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10, c);
+
     // Bottom controls guide
-    glColor4f(0.80f, 0.85f, 0.92f, 0.90f);
+    glColor4f(0.80f, 0.88f, 0.96f, 0.90f);
     glRasterPos2f(16.0f, 13.0f);
-    std::string guide = "[0-9] Target Planet  |  [Space] Pause  |  [+/-] Speed  |  [T] Trails  |  [O] Orbits  |  [L] Labels  |  [B] Stars  |  [R] Auto-Rotate  |  [F] Fullscreen  |  [Esc] Exit";
+    std::string guide = "[0-9] Target Planet  |  [A] Asteroid Belt  |  [K] Kuiper Belt  |  [Space] Pause  |  [+/-] Speed  |  [P] Particles  |  [T] Trails  |  [O] Orbits  |  [L] Labels  |  [B] Stars  |  [R] Auto-Rotate  |  [F] Fullscreen  |  [Esc] Exit";
     for (char c : guide) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10, c);
 
     glPopMatrix();

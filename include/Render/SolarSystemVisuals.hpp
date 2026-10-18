@@ -54,10 +54,13 @@ public:
     void renderMotionTrails(const glm::mat4 &view, const glm::mat4 &proj, const float *majorPositions, float maxPos);
     void renderCelestialBodies(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &camPos,
                                const float *majorPositions, float maxPos, float timeSec);
+    void renderNBodyParticles(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &camPos,
+                             GLuint vbo, GLuint mbo, size_t totalCount, float maxPos, float timeSec);
     void renderSaturnRings(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &saturnPos, float saturnRadius);
     void renderCometTail(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &cometPos, const glm::vec3 &sunPos);
     void renderLabels(const glm::mat4 &view, const glm::mat4 &proj, const float *majorPositions, float maxPos, int screenW, int screenH);
-    void renderHUD(int screenW, int screenH, bool isPaused, float simSpeed, int bodyCount,
+    void renderHUD(int screenW, int screenH, bool isPaused, float simSpeed, int totalBodies,
+                   int submittedBodies, int renderedBodies, int asteroidCount, int kuiperCount, int starCount,
                    const std::string &backend, int focusIndex, float fps, float calcTimeMs);
 
     // State toggles
@@ -65,6 +68,7 @@ public:
     bool showTrails = true;
     bool showLabels = true;
     bool showStarfield = true;
+    bool showParticles = true;
     bool showHUD = true;
 
     glm::vec3 getBodyNormalizedPosition(int bodyIndex, const float *majorPositions, float maxPos) const;
@@ -97,6 +101,8 @@ private:
     GLuint starfieldShader = 0;
     GLuint simpleLineShader = 0;
     GLuint cometShader = 0;
+    GLuint particleShader = 0;
+    GLuint particleVao = 0;
 
     void buildSphere(int slices = 36, int stacks = 36);
     void buildSaturnRings(int segments = 80);

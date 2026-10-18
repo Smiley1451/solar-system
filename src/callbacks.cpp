@@ -100,6 +100,11 @@ void glKeyboardCallback(unsigned char key, int x, int y) {
             visuals.showLabels = !visuals.showLabels;
             break;
 
+        case 'p':
+        case 'P':
+            visuals.showParticles = !visuals.showParticles;
+            break;
+
         case 'b':
         case 'B':
             visuals.showStarfield = !visuals.showStarfield;
@@ -108,6 +113,20 @@ void glKeyboardCallback(unsigned char key, int x, int y) {
         case 'h':
         case 'H':
             visuals.showHUD = !visuals.showHUD;
+            break;
+
+        case 'a':
+        case 'A':
+            focusIndex = 11; // Asteroid Belt overview
+            targetDistance = 0.85f;
+            targetCenter = glm::vec3(0.0f, 0.0f, 0.0f);
+            break;
+
+        case 'k':
+        case 'K':
+            focusIndex = 12; // Kuiper Belt overview
+            targetDistance = 2.2f;
+            targetCenter = glm::vec3(0.0f, 0.0f, 0.0f);
             break;
 
         // Target body focus

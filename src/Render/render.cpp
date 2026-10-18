@@ -127,8 +127,10 @@ void render() {
     if (initialRun) {
         modeLoc = glGetUniformLocation(shaderProgram, "mode");
         isSolarSystemLoc = glGetUniformLocation(shaderProgram, "isSolarSystem");
-        glEnable(GL_POINT_SMOOTH);
-        glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
+        glDisable(GL_POINT_SMOOTH);
+        glEnable(GL_PROGRAM_POINT_SIZE);
+        glEnable(GL_POINT_SPRITE);
+        glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
         glEnable(GL_DEPTH_TEST);
 
         visuals.init(dataSet->getMaxPosition());
@@ -208,39 +210,32 @@ void render() {
         visuals.renderCelestialBodies(M_view, M_projection, camPos, majorPositions, dataSet->getMaxPosition(), now);
 
         // 5. Asteroid belt, Kuiper belt, and simulated star N-body particles
-        if (numRenderElements > 11) {
-            glEnable(GL_DEPTH_TEST);
-            glEnable(GL_PROGRAM_POINT_SIZE);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive luminous glow for celestial points
+        visuals.renderNBodyParticles(M_view, M_projection, camPos, vbo, mbo, numRenderElements, dataSet->getMaxPosition(), now);
 
-            glUseProgram(shaderProgram);
-            glUniformMatrix4fv(M_model_loc, 1, GL_FALSE, glm::value_ptr(M_model));
-            glUniformMatrix4fv(M_view_loc, 1, GL_FALSE, glm::value_ptr(M_view));
-            glUniformMatrix4fv(M_projection_loc, 1, GL_FALSE, glm::value_ptr(M_projection));
-            glUniform1f(glGetUniformLocation(shaderProgram, "maxPos"), dataSet->getMaxPosition());
-            glUniform1f(glGetUniformLocation(shaderProgram, "minMass"), dataSet->getMinMass());
-            glUniform1f(glGetUniformLocation(shaderProgram, "maxMass"), dataSet->getMaxMass());
-            glUniform1i(isSolarSystemLoc, 1);
-            glUniform1ui(modeLoc, 0);
-
-            glBindVertexArray(vao);
-            glDrawArrays(GL_POINTS, 11, (GLsizei)(numRenderElements - 11));
-
-            // 3D Coordinate system axes (Red, Green, Blue) from original project
-            glUniform1ui(modeLoc, 1);
-            glDrawArrays(GL_LINES, 0, 6);
-
-            glBindVertexArray(0);
-            glDisable(GL_BLEND);
-        }
+        // 3D Coordinate system axes (Red, Green, Blue) from original project
+        glUseProgram(shaderProgram);
+        glUniformMatrix4fv(M_model_loc, 1, GL_FALSE, glm::value_ptr(M_model));
+        glUniformMatrix4fv(M_view_loc, 1, GL_FALSE, glm::value_ptr(M_view));
+        glUniformMatrix4fv(M_projection_loc, 1, GL_FALSE, glm::value_ptr(M_projection));
+        glUniform1ui(modeLoc, 1);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_LINES, 0, 6);
+        glBindVertexArray(0);
 
         // 6. Billboard labels
         visuals.renderLabels(M_view, M_projection, majorPositions, dataSet->getMaxPosition(), screenW, screenH);
 
         // 7. Interactive HUD overlay
+        int numAsteroids = 0, numKuiper = 0, numSimStars = 0;
+        if (auto *ss = dynamic_cast<SolarSystemDataSet*>(dataSet)) {
+            numAsteroids = (int)ss->getAsteroidCount();
+            numKuiper = (int)ss->getKuiperCount();
+            numSimStars = (int)ss->getSimulatedStarCount();
+        }
         std::string backend = useGPU ? "OpenCL GPU" : (useCPU ? "CPU OpenMP" : "Simulation");
-        visuals.renderHUD(screenW, screenH, isPaused, simSpeedMultiplier, (int)numRenderElements,
+        visuals.renderHUD(screenW, screenH, isPaused, simSpeedMultiplier,
+                          (int)numRenderElements, (int)numRenderElements, (int)numRenderElements,
+                          numAsteroids, numKuiper, numSimStars,
                           backend, focusIndex, currentFps, (float)(executionTime * 1000.0));
     } else {
         // Fallback for Wikipedia dataset
@@ -254,7 +249,9 @@ void render() {
         glDrawArrays(GL_LINES, 0, 6);
 
         std::string backend = useGPU ? "OpenCL GPU" : "CPU OpenMP";
-        visuals.renderHUD(screenW, screenH, isPaused, simSpeedMultiplier, (int)numRenderElements,
+        visuals.renderHUD(screenW, screenH, isPaused, simSpeedMultiplier,
+                          (int)numRenderElements, (int)numRenderElements, (int)numRenderElements,
+                          0, 0, 0,
                           backend, -1, currentFps, (float)(executionTime * 1000.0));
     }
 
@@ -362,22 +359,31 @@ int openGlInit(int argc, char *argv[]) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * dataSet->getFlatPositions().size(), dataSet->getFlatPositions().data(), GL_DYNAMIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, static_cast<void *>(0));
+    glEnableVertexAttribArray(0);
     glEnableVertexArrayAttrib(vao, 0);
 
     glBindBuffer(GL_ARRAY_BUFFER, mbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * dataSet->getMasses().size(), dataSet->getMasses().data(), GL_DYNAMIC_DRAW);
     glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, static_cast<void *>(0));
+    glEnableVertexAttribArray(1);
     glEnableVertexArrayAttrib(vao, 1);
 
     glBindBuffer(GL_ARRAY_BUFFER, lbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * coordinateSystemLines.size(), coordinateSystemLines.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, static_cast<void *>(0));
+    glEnableVertexAttribArray(2);
     glEnableVertexArrayAttrib(vao, 2);
 
     glBindBuffer(GL_ARRAY_BUFFER, lco);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * lineColors.size(), lineColors.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, static_cast<void *>(0));
+    glEnableVertexAttribArray(3);
     glEnableVertexArrayAttrib(vao, 3);
+
+    glDisable(GL_POINT_SMOOTH);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glEnable(GL_POINT_SPRITE);
+    glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
 
     glLineWidth(COORD_AXIS_WIDTH);
 

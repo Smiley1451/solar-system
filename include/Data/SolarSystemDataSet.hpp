@@ -60,6 +60,9 @@ public:
 
     const std::vector<BodyMetadata>& getMetadata() const { return metadata; }
     size_t getMajorBodyCount() const { return numPlanetsAndSun + numComets; }
+    size_t getAsteroidCount() const { return numAsteroids; }
+    size_t getKuiperCount() const { return numKuiper; }
+    size_t getSimulatedStarCount() const { return numSimulatedStars; }
 };
 
 #endif // __N_BODY_SIMULATION_SOLARSYSTEMDATASET_HPP__

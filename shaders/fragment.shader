@@ -48,16 +48,19 @@ vec3 hsv2rgb(float h, float s, float v){
 void main(){
     if(mode == 0u){
         if (isSolarSystem == 1) {
-            vec2 circCoord = 2.0 * gl_PointCoord - 1.0;
-            float r2 = dot(circCoord, circCoord);
-            if (r2 > 1.0) {
-                discard;
+            float alpha = 1.0;
+            if (gl_PointCoord != vec2(0.0)) {
+                vec2 circCoord = 2.0 * gl_PointCoord - 1.0;
+                float r2 = dot(circCoord, circCoord);
+                if (r2 > 1.0) {
+                    discard;
+                }
+                float dist = sqrt(r2);
+                // Solid bright core with radiant outer glow
+                float core = clamp(1.0 - dist * 1.4, 0.0, 1.0);
+                float glow = pow(clamp(1.0 - dist, 0.0, 1.0), 1.5);
+                alpha = clamp(core * 0.85 + glow * 0.65, 0.0, 1.0);
             }
-            float dist = sqrt(r2);
-            // Solid bright core with radiant outer glow
-            float core = clamp(1.0 - dist * 1.4, 0.0, 1.0);
-            float glow = pow(1.0 - dist, 1.6);
-            float alpha = clamp(core * 0.85 + glow * 0.65, 0.0, 1.0);
 
             float t = clamp((logInMass - logMinMass) / max(logMaxMass - logMinMass, 0.001), 0.0, 1.0);
 
