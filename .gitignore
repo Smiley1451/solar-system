@@ -44,8 +44,12 @@ CTestTestfile.cmake
 _deps
 
 doxygen_files/docu
-build
+build/
 .vscode
+external/**/build/
+external/**/.git
+src/shaders/
+benchmarks/*.csv
 
 # CLion
 .idea
@@ -54,3 +58,4 @@ cmake-build-release/
 cmake-build-release-without-openmp/
 cmake-build-debug-without-openmp/
 benchmarks-build/
+
