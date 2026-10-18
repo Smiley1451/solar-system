@@ -28,6 +28,7 @@
 #include <omp.h>
 #endif
 #include <string>
+#include <fstream>
 
 #include <Render/render.hpp>
 #include <Simulation/GPUCalc.hpp>
@@ -55,7 +56,7 @@ extern int maxFrames;
 int main(int argc, char *argv[]) {
     std::size_t N = 0;
     std::string dataSetName = "";
-    kernelInputPath = "../kernels/";
+    kernelInputPath = "kernels/";
     std::string bodyInitDistribution = "normal";
     std::string device = "GPU";
     //*************************
@@ -91,11 +92,23 @@ int main(int argc, char *argv[]) {
     if (vm.count("Dataset")) {
         dataSetName = vm["Dataset"].as<std::string>();
     }
-    if (vm.count("CL_Kernel_Path")) {
-        kernelInputPath = vm["CL_Kernel_Path"].as<std::string>();
-    }
     if (vm.count("Kernel")) {
         kernelFile = vm["Kernel"].as<std::string>();
+    }
+    if (vm.count("CL_Kernel_Path")) {
+        kernelInputPath = vm["CL_Kernel_Path"].as<std::string>();
+    } else {
+        std::ifstream testLocal("kernels/" + kernelFile);
+        if (testLocal.good()) {
+            kernelInputPath = "kernels/";
+        } else {
+            std::ifstream testParent("../kernels/" + kernelFile);
+            if (testParent.good()) {
+                kernelInputPath = "../kernels/";
+            } else {
+                kernelInputPath = "kernels/";
+            }
+        }
     }
     if (vm.count("Random_Initialization")) {
         bodyInitDistribution = vm["Random_Initialization"].as<std::string>();
@@ -162,8 +175,22 @@ int main(int argc, char *argv[]) {
 
     if (benchmark == BenchmarkMode::OFF) {
         int resCode = openGlInit(argc, argv);
-        openClInit();
-        gpuInit();
+        if (useGPU) {
+            try {
+                openClInit();
+                gpuInit();
+            } catch (const std::exception &ex) {
+                std::cerr << "\n[Notice] OpenCL GPU initialization failed: " << ex.what() << "\n";
+                std::cerr << "[Info] Automatically falling back to CPU multi-core simulation mode.\n" << std::endl;
+                useGPU = false;
+                useCPU = true;
+            } catch (...) {
+                std::cerr << "\n[Notice] OpenCL GPU device not found or unsupported.\n";
+                std::cerr << "[Info] Automatically falling back to CPU multi-core simulation mode.\n" << std::endl;
+                useGPU = false;
+                useCPU = true;
+            }
+        }
 
         // initialize performance metrics
         performanceMetricsCollector = new PerformanceMetricsCollector();
@@ -185,8 +212,15 @@ int main(int argc, char *argv[]) {
 
                 // initialize everything
                 openGlInit(argc, argv);
-                openClInit();
-                gpuInit();
+                if (useGPU) {
+                    try {
+                        openClInit();
+                        gpuInit();
+                    } catch (...) {
+                        useGPU = false;
+                        useCPU = true;
+                    }
+                }
 
                 // In the first iteration we need to initialize the CSV file to save the results
                 if (i == 0)

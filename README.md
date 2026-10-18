@@ -46,15 +46,20 @@ A high-performance, real-time 3D universe and solar system visualization built o
 
 ---
 
-## How to Run
+## How to Run (Zero Setup Required)
 
-### Run Interactive 3D Solar System (GPU accelerated)
-```powershell
-.\N-Body-Simulation.exe --Device GPU
-```
+No compilers or software installations are needed! All 64-bit binaries and runtime libraries are pre-packaged.
 
-### Run on CPU (OpenMP parallel)
+### Option 1: One-Click Launchers (Easiest)
+- **Double-click `run.bat`** (or `N-Body-Simulation.exe`) to launch GPU mode with automatic CPU fallback.
+- **Double-click `run_cpu.bat`** to run purely on CPU with multi-core OpenMP parallel physics.
+
+### Option 2: Command Line / Terminal
 ```powershell
+# Run GPU accelerated mode
+.\N-Body-Simulation.exe
+
+# Run CPU parallel mode
 .\N-Body-Simulation.exe --Device CPU
 ```
 

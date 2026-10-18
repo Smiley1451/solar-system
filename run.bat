@@ -1,6 +1,8 @@
 @echo off
-setlocal
 cd /d "%~dp0"
-echo Launching N-Body Simulation on GPU...
-echo Controls: [Esc]=Exit, [R]=Auto-rotate, [F]=Fullscreen, Mouse=Pan/Zoom
-N-Body-Simulation.exe --N 1000 --Device GPU --Kernel nbody.cl --CL_Kernel_Path kernels/
+echo =======================================================================
+echo    Launching Interactive 3D Solar System and Universe Simulation
+echo =======================================================================
+echo Device: GPU (with automatic CPU fallback if GPU unavailable)
+echo.
+"%~dp0N-Body-Simulation.exe" %*
