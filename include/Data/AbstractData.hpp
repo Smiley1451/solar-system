@@ -9,8 +9,9 @@
  * 
  */
 
+#pragma once
 #ifndef __N_BODY_SIMULATION_ABSTRACTDATA_HPP__
-#define __N_BODY_SIMULATION_ABSTRACTDATA_HPP_
+#define __N_BODY_SIMULATION_ABSTRACTDATA_HPP__
 
 
 #include "Float3.hpp"

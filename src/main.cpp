@@ -19,6 +19,7 @@
 #endif
 // clang-format on
 #include "../../include/Data/WikipediaDataSet.hpp"
+#include "../../include/Data/SolarSystemDataSet.hpp"
 #include "PerformanceMetrics/PerformanceMetricsCollector.hpp"
 #include <boost/program_options.hpp>
 #include <cassert>
@@ -130,7 +131,7 @@ int main(int argc, char *argv[]) {
     //************************
     // Data Set Initialization
     //************************
-    if (true) {
+    if (dataSetName == "Wikipedia" || dataSetName == "wikipedia") {
         if (vm.count("Max_Mass")) {
             const std::string sMaxMass = vm["Max_Mass"].as<std::string>();
             std::istringstream iss(sMaxMass);
@@ -139,6 +140,18 @@ int main(int argc, char *argv[]) {
             dataSet = new WikipediaDataSet(N, bodyInitDistribution, maxMass);
         } else {
             dataSet = new WikipediaDataSet(N, bodyInitDistribution);
+        }
+    } else {
+        // Default dataset: Realistic 3D Solar System with Keplerian physics
+        size_t bodies = (N > 0) ? (size_t)N : 1000;
+        if (vm.count("Max_Mass")) {
+            const std::string sMaxMass = vm["Max_Mass"].as<std::string>();
+            std::istringstream iss(sMaxMass);
+            double maxMass;
+            iss >> maxMass;
+            dataSet = new SolarSystemDataSet(bodies, bodyInitDistribution, maxMass);
+        } else {
+            dataSet = new SolarSystemDataSet(bodies, bodyInitDistribution);
         }
     }
 

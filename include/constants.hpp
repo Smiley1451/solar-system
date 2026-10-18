@@ -13,14 +13,14 @@
 
 #define DEFAULT_OPENCL_DEVICE 1
 
-#define SCREEN_WIDTH 600
-#define SCREEN_HEIGHT 400
-#define WINDOW_TITLE "N-Body Simulation"
+#define SCREEN_WIDTH 1280
+#define SCREEN_HEIGHT 720
+#define WINDOW_TITLE "3D Solar System & Universe N-Body Simulation"
 
 #define VERTEX_SHADER_PATH "../shaders/vertex.shader"
 #define FRAGMENT_SHADER_PATH "../shaders/fragment.shader"
 
-#define FOV 90.0f
+#define FOV 60.0f
 
 #define COORD_AXIS_WIDTH 1.0f
 

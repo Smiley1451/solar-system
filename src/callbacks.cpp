@@ -1,10 +1,16 @@
+/**
+ * @file callbacks.cpp
+ * @brief Interactive keyboard and mouse callbacks for 3D universe exploration
+ */
+
 #include "../include/callbacks.hpp"
+#include "../include/Render/SolarSystemVisuals.hpp"
 #include "../include/glm/gtc/constants.hpp"
 #include "../include/glm/gtc/matrix_transform.hpp"
 #include "../include/glm/mat4x4.hpp"
-#include "GL/freeglut.h"
-
-#define MOUSE_MOVEMENT_THRESHOLD 0
+#include <GL/freeglut.h>
+#include <algorithm>
+#include <cmath>
 
 extern int mainWindow;
 
@@ -21,27 +27,54 @@ extern bool copyMatricesToGPU;
 extern bool automaticCameraRotation;
 bool isFullScreen = false;
 
-/**
- * @brief Callback used for keyboard interaction with the main window
- * 
- * @param key Pressed key
- * @param x x-coordinate of mouse pointer
- * @param y y-coordinate of mouse pointer
- */
+// Interactive controls state
+int focusIndex = -1; // -1: Overview, 0: Sun, 1..9: Planets, 10: Comet
+bool isPaused = false;
+int simStepsPerFrame = 1;
+float simSpeedMultiplier = 1.0f;
+
+float camYaw = 0.0f;
+float camPitch = 0.55f; // ~31 degrees elevation
+float camDistance = 1.8f;
+float targetDistance = 1.8f;
+glm::vec3 currentCenter(0.0f, 0.0f, 0.0f);
+glm::vec3 targetCenter(0.0f, 0.0f, 0.0f);
+
+int lastMouseX = -1;
+int lastMouseY = -1;
+
 void glKeyboardCallback(unsigned char key, int x, int y) {
+    auto &visuals = SolarSystemVisuals::getInstance();
+
     switch (key) {
-        case '\e':
+        case 27: // Escape
             glutDestroyWindow(mainWindow);
             glutLeaveMainLoop();
             break;
-        case 'r':
-            if (automaticCameraRotation) {
-                automaticCameraRotation = false;
-            } else {
-                automaticCameraRotation = true;
-            }
+
+        case ' ': // Toggle Pause
+            isPaused = !isPaused;
             break;
+
+        case '+':
+        case '=': // Faster simulation
+            simStepsPerFrame = std::min(simStepsPerFrame * 2, 16);
+            simSpeedMultiplier = (float)simStepsPerFrame;
+            break;
+
+        case '-':
+        case '_': // Slower simulation
+            simStepsPerFrame = std::max(simStepsPerFrame / 2, 1);
+            simSpeedMultiplier = (float)simStepsPerFrame;
+            break;
+
+        case 'r':
+        case 'R': // Toggle Auto Rotation
+            automaticCameraRotation = !automaticCameraRotation;
+            break;
+
         case 'f':
+        case 'F': // Fullscreen
             if (!isFullScreen) {
                 glutFullScreen();
                 isFullScreen = true;
@@ -49,81 +82,130 @@ void glKeyboardCallback(unsigned char key, int x, int y) {
                 glutLeaveFullScreen();
                 isFullScreen = false;
             }
+            break;
+
+        // Visual element toggles
+        case 't':
+        case 'T':
+            visuals.showTrails = !visuals.showTrails;
+            break;
+
+        case 'o':
+        case 'O':
+            visuals.showOrbits = !visuals.showOrbits;
+            break;
+
+        case 'l':
+        case 'L':
+            visuals.showLabels = !visuals.showLabels;
+            break;
+
+        case 'b':
+        case 'B':
+            visuals.showStarfield = !visuals.showStarfield;
+            break;
+
+        case 'h':
+        case 'H':
+            visuals.showHUD = !visuals.showHUD;
+            break;
+
+        // Target body focus
+        case '0':
+            focusIndex = 0; // Sun
+            targetDistance = 0.22f;
+            break;
+        case '1':
+            focusIndex = 1; // Mercury
+            targetDistance = 0.045f;
+            break;
+        case '2':
+            focusIndex = 2; // Venus
+            targetDistance = 0.065f;
+            break;
+        case '3':
+            focusIndex = 3; // Earth
+            targetDistance = 0.070f;
+            break;
+        case '4':
+            focusIndex = 4; // Mars
+            targetDistance = 0.055f;
+            break;
+        case '5':
+            focusIndex = 5; // Jupiter
+            targetDistance = 0.150f;
+            break;
+        case '6':
+            focusIndex = 6; // Saturn
+            targetDistance = 0.140f;
+            break;
+        case '7':
+            focusIndex = 7; // Uranus
+            targetDistance = 0.090f;
+            break;
+        case '8':
+            focusIndex = 8; // Neptune
+            targetDistance = 0.090f;
+            break;
+        case '9':
+            focusIndex = 9; // Pluto
+            targetDistance = 0.040f;
+            break;
+
+        case 'c':
+        case 'C':
+            focusIndex = 10; // Comet 1P/Halley
+            targetDistance = 0.035f;
+            break;
+
+        case 'z':
+        case 'Z':
+            focusIndex = -1; // Reset to overview
+            targetDistance = 1.8f;
+            targetCenter = glm::vec3(0.0f, 0.0f, 0.0f);
+            break;
+
         default:
             break;
     }
 }
 
-int lastMouseX = -1;//!< Saves the last x-position when mouse was clicked
-int lastMouseY = -1;//!< Saves the last y-position when mouse was clicked
-// Since we are starting our camera at (0, 0, 1), we can use sin and cos to calculate x and z position over time given a step size
-// We therefore define our initial rotation angle to be pi/2 since sin(pi/2) = 1 and cos(pi/2) = 0
-float rotation_XZ = glm::pi<float>() / 2;//!< Stores the current rotation of the camera in the x-z-Plane
-float rotation_XZ_Y = 0;                 //!< Stores the current rotation of the camera in y-direction
-float stepSize = 0.01f;                  //!< Step sized used for increasing or decreasing camera rotation angle when mouse callback is fired
-
-/**
- * @brief Callback used for mouse interaction with the main window; is fired when mouse is clicked
- * 
- * @param x x-coordinate of mouse pointer
- * @param y y-coordinate of mouse pointer
- */
 void glMouseMovementClickCallback(int x, int y) {
     if (-1 == lastMouseX && -1 == lastMouseY) {
         lastMouseX = x;
         lastMouseY = y;
+        return;
     }
 
-    if (x < lastMouseX && glm::abs(x - lastMouseX) > MOUSE_MOVEMENT_THRESHOLD) {
-        M_view = glm::rotate(M_view, 0.01f, glm::vec3(0, 1, 0));
-    } else if ((x > lastMouseX && glm::abs(x - lastMouseX) > MOUSE_MOVEMENT_THRESHOLD)) {
-        M_view = glm::rotate(M_view, -0.01f, glm::vec3(0, 1, 0));
-    }
+    float dx = (float)(x - lastMouseX);
+    float dy = (float)(y - lastMouseY);
 
-    if (y < lastMouseY && glm::abs(y - lastMouseY) > MOUSE_MOVEMENT_THRESHOLD) {
-        M_view = glm::translate(M_view, glm::vec3(0.0f, -0.001f, 0.0f));
-    } else if (y > lastMouseY && glm::abs(y - lastMouseY) > MOUSE_MOVEMENT_THRESHOLD) {
-        M_view = glm::translate(M_view, glm::vec3(0.0f, 0.001f, 0.0f));
-    }
+    camYaw -= dx * 0.006f;
+    camPitch += dy * 0.006f;
+
+    // Prevent gimbal-flip when looking directly straight up or down
+    const float PITCH_LIMIT = 1.48f; // ~85 degrees
+    camPitch = std::clamp(camPitch, -PITCH_LIMIT, PITCH_LIMIT);
 
     lastMouseX = x;
     lastMouseY = y;
     copyMatricesToGPU = true;
 }
 
-/**
- * @brief Callback fired when scrolling the mouse wheel; used for zooming in and out
- * 
- * @param button Button that has been pressed (0 for mouse wheel)
- * @param state The moving direction of the wheel
- * @param x x-coordinate of mouse pointer
- * @param y y-coordinate of mouse pointer
- */
 void glMouseWheelCallback(int button, int state, int x, int y) {
 #ifdef __unix__
     if (3 == button) {
-        M_view[3].x -= M_view[3].x * 0.1;
-        M_view[3].y -= M_view[3].y * 0.1;
-        M_view[3].z -= M_view[3].z * 0.1;
-
+        targetDistance *= 0.84f;
     } else if (4 == button) {
-        M_view[3].x += M_view[3].x * 0.1;
-        M_view[3].y += M_view[3].y * 0.1;
-        M_view[3].z += M_view[3].z * 0.1;
+        targetDistance *= 1.18f;
     }
 #elif _WIN32
     if (state > 0) {
-        M_view[3].x -= M_view[3].x * 0.1;
-        M_view[3].y -= M_view[3].y * 0.1;
-        M_view[3].z -= M_view[3].z * 0.1;
-
+        targetDistance *= 0.84f;
     } else {
-        M_view[3].x += M_view[3].x * 0.1;
-        M_view[3].y += M_view[3].y * 0.1;
-        M_view[3].z += M_view[3].z * 0.1;
+        targetDistance *= 1.18f;
     }
 #endif
-    // Little bit strange with the matrix values but it works somehow :D
-    zoomFactor = 0.3f / (glm::sqrt(pow(M_view[3].x, 2) + pow(M_view[3].z, 2))) < 1.5f ? 0.3f / (glm::sqrt(pow(M_view[3].x, 2) + pow(M_view[3].z, 2))) : 1.5f;
+    targetDistance = std::clamp(targetDistance, 0.008f, 10.0f);
     copyMatricesToGPU = true;
 }
