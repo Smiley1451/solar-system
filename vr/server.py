@@ -66,6 +66,10 @@ class VRRequestHandler(http.server.SimpleHTTPRequestHandler):
         # Suppress routine GET logs
         pass
 
+# Class-level allow_reuse_address is essential on Windows socketserver to prevent WinError 10048
+class ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
+
 def ensure_ssl_certificates():
     """Check if self-signed certificate exists; if not, generate using git openssl."""
     if os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE):
@@ -79,9 +83,11 @@ def ensure_ssl_certificates():
     return False
 
 def run_http_server():
-    with socketserver.TCPServer(("", HTTP_PORT), VRRequestHandler) as httpd:
-        httpd.allow_reuse_address = True
-        httpd.serve_forever()
+    try:
+        with ReusableTCPServer(("", HTTP_PORT), VRRequestHandler) as httpd:
+            httpd.serve_forever()
+    except OSError as e:
+        print(f"[!] HTTP Port {HTTP_PORT} notice: {e}. (Another instance may already be running)")
 
 def run_https_server():
     if not ensure_ssl_certificates():
@@ -90,14 +96,15 @@ def run_https_server():
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(certfile=CERT_FILE, keyfile=KEY_FILE)
 
-    with socketserver.TCPServer(("", HTTPS_PORT), VRRequestHandler) as httpsd:
-        httpsd.allow_reuse_address = True
-        httpsd.socket = context.wrap_socket(httpsd.socket, server_side=True)
-        httpsd.serve_forever()
+    try:
+        with ReusableTCPServer(("", HTTPS_PORT), VRRequestHandler) as httpsd:
+            httpsd.socket = context.wrap_socket(httpsd.socket, server_side=True)
+            httpsd.serve_forever()
+    except OSError as e:
+        print(f"[!] HTTPS Port {HTTPS_PORT} notice: {e}. (Another instance may already be running)")
 
 def main():
     local_ip = get_local_ip()
-
     has_https = ensure_ssl_certificates()
 
     print("=" * 78)
