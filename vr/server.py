@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
 Solar System N-Body Simulation — Mobile Observatory & VR Server
-Serves the Mobile WebXR Client with zero external dependencies.
+Serves BOTH HTTP (Port 8080) and HTTPS (Port 8443) concurrently.
+HTTPS unlocks full hardware gyroscope sensors in mobile Chrome & Safari!
 """
 
 import http.server
 import socketserver
 import socket
+import ssl
 import os
 import sys
 import webbrowser
@@ -14,9 +16,12 @@ import threading
 import json
 import time
 
-PORT = 8080
+HTTP_PORT = 8080
+HTTPS_PORT = 8443
 VR_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(VR_DIR, "web")
+CERT_FILE = os.path.join(VR_DIR, "cert.pem")
+KEY_FILE = os.path.join(VR_DIR, "key.pem")
 
 def get_local_ip():
     """Detect local IP accessible by phones on the same Wi-Fi / Hotspot / USB."""
@@ -50,47 +55,91 @@ class VRRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "bodies": 1611,
                 "timestamp": time.time(),
                 "local_ip": get_local_ip(),
-                "port": PORT
+                "http_port": HTTP_PORT,
+                "https_port": HTTPS_PORT
             }
             self.wfile.write(json.dumps(status_data).encode('utf-8'))
             return
         return super().do_GET()
 
     def log_message(self, format, *args):
-        if "404" in str(args) or "500" in str(args):
-            sys.stderr.write(f"[VR Server] {args}\n")
+        # Suppress routine GET logs
+        pass
 
-def run_server():
+def ensure_ssl_certificates():
+    """Check if self-signed certificate exists; if not, generate using git openssl."""
+    if os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE):
+        return True
+
+    git_openssl = r"C:\Program Files\Git\usr\bin\openssl.exe"
+    if os.path.exists(git_openssl):
+        cmd = f'"{git_openssl}" req -x509 -newkey rsa:2048 -keyout "{KEY_FILE}" -out "{CERT_FILE}" -days 365 -nodes -subj "/CN={get_local_ip()}"'
+        os.system(cmd)
+        return os.path.exists(CERT_FILE)
+    return False
+
+def run_http_server():
+    with socketserver.TCPServer(("", HTTP_PORT), VRRequestHandler) as httpd:
+        httpd.allow_reuse_address = True
+        httpd.serve_forever()
+
+def run_https_server():
+    if not ensure_ssl_certificates():
+        return
+
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certfile=CERT_FILE, keyfile=KEY_FILE)
+
+    with socketserver.TCPServer(("", HTTPS_PORT), VRRequestHandler) as httpsd:
+        httpsd.allow_reuse_address = True
+        httpsd.socket = context.wrap_socket(httpsd.socket, server_side=True)
+        httpsd.serve_forever()
+
+def main():
     local_ip = get_local_ip()
-    url_local = f"http://localhost:{PORT}"
-    url_mobile = f"http://{local_ip}:{PORT}"
 
-    print("=" * 76)
-    print("   SOLAR SYSTEM 3D SIMULATION -- MOBILE OBSERVATORY & VR SERVER")
-    print("=" * 76)
-    print(f" [*] Local PC URL:      {url_local}")
-    print(f" [*] Mobile Phone URL:   {url_mobile}")
-    print("-" * 76)
-    print(" [HOW TO USE ON ANY SMARTPHONE (NO EXTRA HARDWARE NEEDED)]:")
-    print("  1. Connect your phone to your laptop (via Wi-Fi or USB Tethering).")
-    print(f"  2. Open Chrome or Safari on your phone and go to:  {url_mobile}")
-    print("  3. Navigation on phone:")
-    print("     - Swipe anywhere with 1 finger: Look 360 degrees around space!")
-    print("     - Pinch with 2 fingers: Zoom in and out.")
-    print("     - Tap any planet: Smoothly fly right up to it.")
-    print("     - Optional: Tap 'VR Cardboard' if you have a headset for stereo 3D.")
-    print("=" * 76)
-    print(" [*] Server is active. Press Ctrl+C to stop.")
+    has_https = ensure_ssl_certificates()
+
+    print("=" * 78)
+    print("    SOLAR SYSTEM 3D SIMULATION -- MOBILE OBSERVATORY & VR SERVER")
+    print("=" * 78)
+    print(" [*] DO NOT TYPE 'localhost' ON YOUR PHONE! 'localhost' only works on your laptop.")
+    print(" [*] On your phone (connected to the same Wi-Fi), open either:")
+    print()
+    print(f"     1. OPTION 1 (Standard Touch 360 & D-Pad - Zero Warnings):")
+    print(f"        http://{local_ip}:{HTTP_PORT}")
+    print()
+    if has_https:
+        print(f"     2. OPTION 2 (Hardware Gyroscope & Physical Phone Tilt):")
+        print(f"        https://{local_ip}:{HTTPS_PORT}")
+        print(f"        (On phone: Tap 'Advanced' -> 'Proceed to {local_ip}' to unlock gyro)")
+    print("-" * 78)
+    print(" [NAVIGATION INSTRUCTIONS FOR PHONE]:")
+    print("  - Swipe anywhere with 1 finger to look 360 degrees around space.")
+    print("  - Use the glowing 4-way D-Pad on the right to spin left/right/up/down.")
+    print("  - Tap any planet button on the bottom bar to fly right next to it.")
+    print("  - Pinch to zoom in and out.")
+    print("=" * 78)
+    print(" [*] Server is ACTIVE. Press Ctrl+C to terminate.")
     print()
 
-    threading.Timer(1.2, lambda: webbrowser.open(url_local)).start()
+    # Automatically open laptop browser to HTTP
+    threading.Timer(1.2, lambda: webbrowser.open(f"http://localhost:{HTTP_PORT}")).start()
 
-    with socketserver.TCPServer(("", PORT), VRRequestHandler) as httpd:
-        httpd.allow_reuse_address = True
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            print("\n[*] VR Server stopped. Goodbye!")
+    # Start HTTP server thread
+    t_http = threading.Thread(target=run_http_server, daemon=True)
+    t_http.start()
+
+    # Start HTTPS server thread if cert available
+    if has_https:
+        t_https = threading.Thread(target=run_https_server, daemon=True)
+        t_https.start()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\n[*] Shutting down servers. Goodbye!")
 
 if __name__ == "__main__":
-    run_server()
+    main()
