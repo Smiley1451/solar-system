@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Solar System N-Body Simulation - VR & Mobile WebXR Server
-Serves the Mobile VR Web Client and provides real-time sensor/telemetry bridge.
-Zero external dependencies required (uses standard library only).
+Solar System N-Body Simulation — Mobile Observatory & VR Server
+Serves the Mobile WebXR Client with zero external dependencies.
 """
 
 import http.server
@@ -20,10 +19,9 @@ VR_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(VR_DIR, "web")
 
 def get_local_ip():
-    """Detect the local machine IP accessible by other devices on the LAN/Wi-Fi."""
+    """Detect local IP accessible by phones on the same Wi-Fi / Hotspot / USB."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        # Does not actually establish a connection, but resolves outgoing interface
         s.connect(('8.8.8.8', 80))
         ip = s.getsockname()[0]
     except Exception:
@@ -37,7 +35,6 @@ class VRRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=WEB_DIR, **kwargs)
 
     def end_headers(self):
-        # Enable CORS and disable caching for active development
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
         super().end_headers()
@@ -48,7 +45,7 @@ class VRRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             status_data = {
-                "server": "SolarSystem-VR-Server",
+                "server": "SolarSystem-Observatory-Server",
                 "status": "online",
                 "bodies": 1611,
                 "timestamp": time.time(),
@@ -60,31 +57,32 @@ class VRRequestHandler(http.server.SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def log_message(self, format, *args):
-        # Suppress noisy standard GET logs, only log errors or important events
         if "404" in str(args) or "500" in str(args):
-            sys.stderr.write(f"[VR Server Error] {args}\n")
+            sys.stderr.write(f"[VR Server] {args}\n")
 
 def run_server():
     local_ip = get_local_ip()
     url_local = f"http://localhost:{PORT}"
     url_mobile = f"http://{local_ip}:{PORT}"
 
-    print("=" * 74)
-    print("      SOLAR SYSTEM N-BODY SIMULATION — VR & MOBILE PORTAL")
-    print("=" * 74)
-    print(f" [*] Local PC URL:    {url_local}")
-    print(f" [*] Mobile VR URL:   {url_mobile}")
-    print("-" * 74)
-    print(" [INSTRUCTIONS FOR COLLEGE DEMONSTRATION]:")
-    print("  1. Connect your phone to the same Wi-Fi or Laptop Mobile Hotspot / USB.")
-    print(f"  2. Open Chrome/Safari on your phone and go to:  {url_mobile}")
-    print("  3. Tap 'Enter VR' for Google Cardboard / VR Box stereoscopic 3D mode,")
-    print("     or use '360° Gyro Mode' to hold the phone and look around space!")
-    print("=" * 74)
-    print(" [*] Server is active. Press Ctrl+C to terminate.")
+    print("=" * 76)
+    print("   SOLAR SYSTEM 3D SIMULATION -- MOBILE OBSERVATORY & VR SERVER")
+    print("=" * 76)
+    print(f" [*] Local PC URL:      {url_local}")
+    print(f" [*] Mobile Phone URL:   {url_mobile}")
+    print("-" * 76)
+    print(" [HOW TO USE ON ANY SMARTPHONE (NO EXTRA HARDWARE NEEDED)]:")
+    print("  1. Connect your phone to your laptop (via Wi-Fi or USB Tethering).")
+    print(f"  2. Open Chrome or Safari on your phone and go to:  {url_mobile}")
+    print("  3. Navigation on phone:")
+    print("     - Swipe anywhere with 1 finger: Look 360 degrees around space!")
+    print("     - Pinch with 2 fingers: Zoom in and out.")
+    print("     - Tap any planet: Smoothly fly right up to it.")
+    print("     - Optional: Tap 'VR Cardboard' if you have a headset for stereo 3D.")
+    print("=" * 76)
+    print(" [*] Server is active. Press Ctrl+C to stop.")
     print()
 
-    # Automatically open local browser on laptop
     threading.Timer(1.2, lambda: webbrowser.open(url_local)).start()
 
     with socketserver.TCPServer(("", PORT), VRRequestHandler) as httpd:
@@ -92,7 +90,7 @@ def run_server():
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
-            print("\n[*] Shutting down VR Server. Goodbye!")
+            print("\n[*] VR Server stopped. Goodbye!")
 
 if __name__ == "__main__":
     run_server()

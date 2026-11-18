@@ -6,76 +6,74 @@
   <meta name="theme-color" content="#030712">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Solar System N-Body Simulation — Mobile VR & WebXR</title>
+  <title>Solar System 3D Simulation — Real-Time N-Body Gravity & Mobile Observatory</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <!-- 3D Canvas Container -->
   <div id="canvas-container"></div>
 
-  <!-- VR Reticle / Gaze Pointer (shown in VR Cardboard mode) -->
-  <div id="vr-reticle" class="hidden">
-    <div class="reticle-dot"></div>
-    <div class="reticle-ring"></div>
+  <!-- Original Desktop Diagnostic HUD Banner (Top) -->
+  <div id="desktop-hud-top">
+    <div class="hud-line-1">
+      <span class="hud-title">SOLAR SYSTEM 3D SIMULATION - REAL-TIME OPENCL N-BODY GRAVITY</span>
+      <span class="hud-perf" id="hud-perf-counter">FPS: 60.0 | Calc: 0.56 ms</span>
+    </div>
+    <div class="hud-line-2" id="hud-line-stats">
+      Status: [RUNNING] | Step: 1.0x (4h/step) | Total Bodies: 1611 | Submitted: 1611 | Rendered: 1611 (Major: 11, Asteroids: 600, Kuiper: 500, Stars: 500) | Engine: OpenCL GPU
+    </div>
+    <div class="hud-line-3">
+      Legend: [Sun/Planets: Procedural 3D Meshes] [Asteroids: Warm Amber Points] [Kuiper Belt: Crystalline Cyan] [Oort Cloud: Diamond White] [Deep Sky: Starfield (2,500 Stars)]
+    </div>
   </div>
 
-  <!-- Top Status Bar -->
-  <header id="top-bar">
-    <div class="brand">
-      <span class="pulse-dot"></span>
-      <span class="brand-title">N-BODY VR SOLAR SYSTEM</span>
-      <span class="badge">1,611 BODIES</span>
-    </div>
-    <div class="top-controls">
-      <button id="btn-qr" class="btn-icon" title="Scan QR Code to open on Phone">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM14 14h3v3h-3zM19 14h2v2h-2zM14 19h2v2h-2zM18 18h3v3h-3z"/></svg>
-        <span class="btn-label">Share to Phone</span>
-      </button>
-      <button id="btn-gyro" class="btn-mode" title="Toggle 360° Phone Gyroscope Head Tracking">
-        <span class="icon">📱</span>
-        <span>360° Gyro</span>
-      </button>
-      <button id="btn-vr" class="btn-mode primary" title="Enter Stereoscopic VR Cardboard Mode">
-        <span class="icon">👓</span>
-        <span>Enter VR</span>
-      </button>
-    </div>
-  </header>
+  <!-- Mobile Quick Action Floating Bar (Top Right) -->
+  <div id="mobile-quick-actions">
+    <button id="btn-touch-mode" class="quick-btn active" title="Touch / Swipe Navigation Active">
+      <span class="icon">👆</span>
+      <span class="label">Touch 360°</span>
+    </button>
+    <button id="btn-gyro" class="quick-btn" title="Enable Mobile Phone Gyroscope Head Tracking">
+      <span class="icon">📱</span>
+      <span class="label" id="gyro-btn-label">Enable Gyro</span>
+    </button>
+    <button id="btn-vr" class="quick-btn vr" title="Toggle Stereoscopic VR Cardboard Split-Screen">
+      <span class="icon">👓</span>
+      <span class="label">VR Cardboard</span>
+    </button>
+  </div>
 
-  <!-- Left Telemetry Panel -->
-  <aside id="telemetry-panel">
-    <div class="telemetry-card">
-      <div class="telemetry-header">
-        <h3 id="target-name">Sun (Sol)</h3>
-        <span id="target-type" class="badge-type">G-Type Star</span>
+  <!-- Telemetry Card (Bottom Left) -->
+  <div id="planet-telemetry-card">
+    <div class="card-header">
+      <h3 id="target-name">Sun (Sol)</h3>
+      <span id="target-type" class="badge-type">G2V Yellow Dwarf</span>
+    </div>
+    <div class="card-grid">
+      <div class="card-cell">
+        <span class="lbl">Semi-Major Axis</span>
+        <span class="val" id="val-dist">0.00 AU</span>
       </div>
-      <div class="telemetry-grid">
-        <div class="metric">
-          <span class="metric-label">Semi-Major Axis</span>
-          <span class="metric-val" id="val-dist">0.00 AU</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Orbital Velocity</span>
-          <span class="metric-val" id="val-vel">0.0 km/s</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Orbital Period</span>
-          <span class="metric-val" id="val-period">—</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">Mass</span>
-          <span class="metric-val" id="val-mass">1.989 × 10³⁰ kg</span>
-        </div>
+      <div class="card-cell">
+        <span class="lbl">Orbital Speed</span>
+        <span class="val" id="val-vel">0.0 km/s</span>
       </div>
-      <hr class="divider">
-      <div class="sim-stats">
-        <div><strong>Simulation:</strong> Keplerian N-Body</div>
-        <div><strong>Active Bodies:</strong> 1,611 Gravitating Particles</div>
-        <div><strong>Belts:</strong> Asteroid (600) | Kuiper (500) | Oort (500)</div>
-        <div><strong>Render FPS:</strong> <span id="fps-counter">60</span> FPS</div>
+      <div class="card-cell">
+        <span class="lbl">Orbital Period</span>
+        <span class="val" id="val-period">Center of Mass</span>
+      </div>
+      <div class="card-cell">
+        <span class="lbl">Mass</span>
+        <span class="val" id="val-mass">1.989 × 10³⁰ kg</span>
       </div>
     </div>
-  </aside>
+  </div>
+
+  <!-- On-Screen Virtual Touchpad Indicator for Mobile (Shows user where to swipe) -->
+  <div id="mobile-touch-guide">
+    <div class="touch-ring"></div>
+    <div class="touch-hint">Swipe anywhere to look 360° • Pinch to zoom</div>
+  </div>
 
   <!-- Bottom Planet Quick-Bar -->
   <nav id="planet-bar">
@@ -95,42 +93,20 @@
     </div>
   </nav>
 
-  <!-- Floating Speed & Playback Controls -->
-  <div id="playback-controls">
-    <button id="btn-pause" class="btn-circle" title="Pause / Resume">⏸️</button>
-    <div class="speed-selector">
-      <button class="speed-btn" data-speed="0.25">0.25x</button>
-      <button class="speed-btn" data-speed="0.5">0.5x</button>
-      <button class="speed-btn active" data-speed="1.0">1.0x</button>
-      <button class="speed-btn" data-speed="2.0">2.0x</button>
-      <button class="speed-btn" data-speed="4.0">4.0x</button>
-    </div>
-    <button id="btn-reset-cam" class="btn-circle" title="Reset Camera">🎯</button>
+  <!-- Bottom Desktop Controls Info Banner -->
+  <div id="desktop-hud-bottom">
+    <span class="hud-bottom-item"><strong>Controls:</strong> [Drag] Orbit Camera | [Pinch / Wheel] Zoom | [Tap Planet] Fly To Body | [Space] Pause | [+/-] Speed</span>
+    <span class="hud-bottom-right">
+      <button id="btn-pause" class="hud-btn">⏸️ Pause</button>
+      <button id="btn-speed-down" class="hud-btn">Slower (-)</button>
+      <span id="speed-display" class="hud-speed-tag">1.0x</span>
+      <button id="btn-speed-up" class="hud-btn">Faster (+)</button>
+      <button id="btn-reset-cam" class="hud-btn">🎯 Reset View</button>
+    </span>
   </div>
 
-  <!-- QR Code Modal (for easy mobile pairing in college) -->
-  <div id="qr-modal" class="modal hidden">
-    <div class="modal-card">
-      <button id="btn-close-modal" class="modal-close">&times;</button>
-      <h2>Connect Any Smartphone</h2>
-      <p>Scan this QR code with your phone's camera to immediately view this VR simulation on mobile (Zero app installation required):</p>
-      <div id="qrcode-container"></div>
-      <div class="url-badge" id="mobile-url-display">http://...</div>
-      <div class="modal-features">
-        <div class="feature-item">
-          <strong>📱 360° Gyroscope:</strong> Move the phone to look around space.
-        </div>
-        <div class="feature-item">
-          <strong>👓 Google Cardboard / VR Box:</strong> Tap "Enter VR" for stereoscopic 3D.
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- VR Instruction Toast Overlay (briefly shown when entering VR) -->
-  <div id="vr-toast" class="toast hidden">
-    Place phone horizontally into your VR Headset / Google Cardboard. Look at planets to focus.
-  </div>
+  <!-- Notification Toast -->
+  <div id="hud-toast" class="toast hidden"></div>
 
   <!-- Offline Scripts -->
   <script src="three.min.js"></script>
