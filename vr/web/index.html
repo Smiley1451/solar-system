@@ -29,18 +29,29 @@
 
   <!-- Mobile Quick Action Floating Bar (Top Right) -->
   <div id="mobile-quick-actions">
-    <button id="btn-touch-mode" class="quick-btn active" title="Touch / Swipe Navigation Active">
+    <button id="btn-touch-mode" class="quick-btn active" title="Touch & Swipe 360° Navigation">
       <span class="icon">👆</span>
       <span class="label">Touch 360°</span>
     </button>
-    <button id="btn-gyro" class="quick-btn" title="Enable Mobile Phone Gyroscope Head Tracking">
+    <button id="btn-gyro" class="quick-btn" title="Attempt Phone Sensor / Tilt Tracking">
       <span class="icon">📱</span>
-      <span class="label" id="gyro-btn-label">Enable Gyro</span>
+      <span class="label" id="gyro-btn-label">Sensor Tilt</span>
     </button>
     <button id="btn-vr" class="quick-btn vr" title="Toggle Stereoscopic VR Cardboard Split-Screen">
       <span class="icon">👓</span>
       <span class="label">VR Cardboard</span>
     </button>
+  </div>
+
+  <!-- Mobile 4-Way Look Pad (Guaranteed 360° Camera Control on ANY phone) -->
+  <div id="mobile-dpad">
+    <button class="dpad-btn up" id="dpad-up" title="Look Up">▲</button>
+    <div class="dpad-mid">
+      <button class="dpad-btn left" id="dpad-left" title="Look Left">◀</button>
+      <div class="dpad-center">360°</div>
+      <button class="dpad-btn right" id="dpad-right" title="Look Right">▶</button>
+    </div>
+    <button class="dpad-btn down" id="dpad-down" title="Look Down">▼</button>
   </div>
 
   <!-- Telemetry Card (Bottom Left) -->
@@ -69,10 +80,10 @@
     </div>
   </div>
 
-  <!-- On-Screen Virtual Touchpad Indicator for Mobile (Shows user where to swipe) -->
+  <!-- Mobile Touch Guide Hint -->
   <div id="mobile-touch-guide">
     <div class="touch-ring"></div>
-    <div class="touch-hint">Swipe anywhere to look 360° • Pinch to zoom</div>
+    <div class="touch-hint">👆 Swipe anywhere or use the 360° D-Pad • Pinch to zoom</div>
   </div>
 
   <!-- Bottom Planet Quick-Bar -->

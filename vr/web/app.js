@@ -732,8 +732,8 @@ function setupMobileTouchNavigation() {
 
   // Single-Finger Touch / Mouse Drag anywhere to look 360°
   window.addEventListener("pointerdown", (e) => {
-    // Ignore clicks on HUD buttons
-    if (e.target.closest("button") || e.target.closest("#planet-bar") || e.target.closest("#mobile-quick-actions")) {
+    // Ignore clicks on buttons, D-Pad, planet bar, quick actions
+    if (e.target.closest("button") || e.target.closest("#planet-bar") || e.target.closest("#mobile-quick-actions") || e.target.closest("#mobile-dpad")) {
       return;
     }
     isTouching = true;
@@ -742,7 +742,6 @@ function setupMobileTouchNavigation() {
     touchPrevX = e.clientX;
     touchPrevY = e.clientY;
 
-    // Fade out the touch guide after user first interacts
     const guide = document.getElementById("mobile-touch-guide");
     if (guide) guide.style.opacity = "0.2";
   });
@@ -789,65 +788,134 @@ function setupMobileTouchNavigation() {
   window.addEventListener("wheel", (e) => {
     targetCamDistance = Math.max(2.5, Math.min(220.0, targetCamDistance + e.deltaY * 0.04));
   }, { passive: true });
+
+  // Mobile 360 D-Pad Continuous Controls
+  let dpadInterval = null;
+  function startDpadAction(action) {
+    if (dpadInterval) clearInterval(dpadInterval);
+    action();
+    dpadInterval = setInterval(action, 40);
+  }
+  function stopDpadAction() {
+    if (dpadInterval) {
+      clearInterval(dpadInterval);
+      dpadInterval = null;
+    }
+  }
+
+  const dpadUp = document.getElementById("dpad-up");
+  const dpadDown = document.getElementById("dpad-down");
+  const dpadLeft = document.getElementById("dpad-left");
+  const dpadRight = document.getElementById("dpad-right");
+
+  if (dpadUp) {
+    dpadUp.addEventListener("pointerdown", (e) => { e.preventDefault(); startDpadAction(() => { camPitch = Math.min(1.45, camPitch + 0.04); }); });
+    dpadUp.addEventListener("pointerup", stopDpadAction);
+    dpadUp.addEventListener("pointerleave", stopDpadAction);
+  }
+  if (dpadDown) {
+    dpadDown.addEventListener("pointerdown", (e) => { e.preventDefault(); startDpadAction(() => { camPitch = Math.max(-1.45, camPitch - 0.04); }); });
+    dpadDown.addEventListener("pointerup", stopDpadAction);
+    dpadDown.addEventListener("pointerleave", stopDpadAction);
+  }
+  if (dpadLeft) {
+    dpadLeft.addEventListener("pointerdown", (e) => { e.preventDefault(); startDpadAction(() => { camYaw += 0.045; }); });
+    dpadLeft.addEventListener("pointerup", stopDpadAction);
+    dpadLeft.addEventListener("pointerleave", stopDpadAction);
+  }
+  if (dpadRight) {
+    dpadRight.addEventListener("pointerdown", (e) => { e.preventDefault(); startDpadAction(() => { camYaw -= 0.045; }); });
+    dpadRight.addEventListener("pointerup", stopDpadAction);
+    dpadRight.addEventListener("pointerleave", stopDpadAction);
+  }
 }
 
-// Hardware Gyroscope Activation
+// Hardware Gyroscope & Accelerometer Activation
+let hasReceivedSensorEvent = false;
+
 function toggleGyroscope() {
   const btn = document.getElementById("btn-gyro");
   const label = document.getElementById("gyro-btn-label");
 
   if (isGyroActive) {
     window.removeEventListener("deviceorientation", handleDeviceOrientation);
+    window.removeEventListener("devicemotion", handleDeviceMotion);
     isGyroActive = false;
     btn.classList.remove("active");
-    label.innerText = "Enable Gyro";
-    showToast("360° Touch Swipe Mode active.");
+    label.innerText = "Sensor Tilt";
+    showToast("360° Touch Swipe & D-Pad mode active.");
     return;
   }
 
-  // Handle iOS 13+ permission request
+  hasReceivedSensorEvent = false;
+
+  // 1. Try iOS 13+ permission request
   if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
     DeviceOrientationEvent.requestPermission()
       .then((res) => {
         if (res === "granted") {
-          activateGyroListener(btn, label);
+          activateGyroListeners(btn, label);
         } else {
-          showToast("Gyroscope permission denied. Touch swipe is fully active!");
+          showToast("Permission denied. Touch Swipe & D-Pad are 100% active!");
         }
       })
       .catch((err) => {
-        showToast("Gyroscope not supported on unencrypted HTTP. Use Touch Swipe!");
+        showToast("Browser Notice: iOS blocks sensors on HTTP. Touch Swipe & D-Pad are 100% active!");
       });
-  } else if (window.DeviceOrientationEvent) {
-    activateGyroListener(btn, label);
-  } else {
-    showToast("Device has no hardware gyroscope. Touch swipe is fully active!");
+    return;
+  }
+
+  // 2. Try Standard DeviceOrientation and DeviceMotion listeners (Android / modern browsers)
+  try {
+    activateGyroListeners(btn, label);
+
+    // Timeout check: did the browser actually deliver any sensor events?
+    setTimeout(() => {
+      if (!hasReceivedSensorEvent) {
+        showToast("Notice: Mobile Chrome requires HTTPS for physical tilt. Touch Swipe & D-Pad are 100% ACTIVE!");
+      }
+    }, 1200);
+
+  } catch (err) {
+    showToast("Notice: Mobile browser blocks sensors on HTTP. Touch Swipe & D-Pad are 100% ACTIVE!");
   }
 }
 
-function activateGyroListener(btn, label) {
-  window.addEventListener("deviceorientation", handleDeviceOrientation);
+function activateGyroListeners(btn, label) {
+  window.addEventListener("deviceorientation", handleDeviceOrientation, true);
+  window.addEventListener("devicemotion", handleDeviceMotion, true);
   isGyroActive = true;
   gyroInitialYaw = null;
   btn.classList.add("active");
-  label.innerText = "Gyro: ON";
-  showToast("Hardware Gyroscope Enabled! Move phone to look around.");
+  label.innerText = "Sensor: ON";
+  showToast("Sensor Tilt Enabled! Tilt phone or swipe screen to look around.");
 }
 
 function handleDeviceOrientation(e) {
-  if (!e.alpha && !e.beta) return;
+  if (e.alpha !== null && e.beta !== null) {
+    hasReceivedSensorEvent = true;
+    const alpha = THREE.MathUtils.degToRad(e.alpha || 0); // Z (yaw)
+    const beta = THREE.MathUtils.degToRad(e.beta || 0);   // X (pitch)
 
-  const alpha = THREE.MathUtils.degToRad(e.alpha || 0); // Z (yaw)
-  const beta = THREE.MathUtils.degToRad(e.beta || 0);   // X (pitch)
-  const gamma = THREE.MathUtils.degToRad(e.gamma || 0); // Y (roll)
-
-  if (gyroInitialYaw === null) {
-    gyroInitialYaw = alpha;
+    if (gyroInitialYaw === null) {
+      gyroInitialYaw = alpha;
+    }
+    camYaw = -(alpha - gyroInitialYaw) + 0.85;
+    camPitch = Math.max(-1.4, Math.min(1.4, (beta - Math.PI / 4)));
   }
+}
 
-  // Map phone tilt directly to camera rotation
-  camYaw = -(alpha - gyroInitialYaw) + 0.85;
-  camPitch = Math.max(-1.4, Math.min(1.4, (beta - Math.PI / 4)));
+function handleDeviceMotion(e) {
+  if (e.accelerationIncludingGravity && !hasReceivedSensorEvent) {
+    const ag = e.accelerationIncludingGravity;
+    if (ag.x !== null && ag.y !== null && ag.z !== null) {
+      hasReceivedSensorEvent = true;
+      const pitch = Math.atan2(ag.y, Math.sqrt(ag.x * ag.x + ag.z * ag.z));
+      const roll = Math.atan2(ag.x, Math.sqrt(ag.y * ag.y + ag.z * ag.z));
+      camPitch = Math.max(-1.4, Math.min(1.4, -pitch));
+      camYaw += roll * 0.015;
+    }
+  }
 }
 
 // Stereoscopic VR Cardboard Mode
