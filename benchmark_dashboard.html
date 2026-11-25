@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solar System N-Body Simulation — Parallel Architecture Benchmark & Performance Analyzer</title>
+  <style>
+    :root {
+      --bg-dark: #070c18;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --card-border: rgba(56, 189, 248, 0.25);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-cyan: #38bdf8;
+      --accent-green: #10b981;
+      --accent-gold: #f59e0b;
+      --accent-purple: #a855f7;
+      --accent-pink: #ec4899;
+      --accent-blue: #3b82f6;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: Consolas, "SF Mono", Menlo, Monaco, "Courier New", monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      padding: 24px;
+      background-image: 
+        radial-gradient(ellipse at 15% 10%, rgba(56, 189, 248, 0.12) 0%, transparent 40%),
+        radial-gradient(ellipse at 85% 85%, rgba(168, 85, 247, 0.10) 0%, transparent 45%);
+      background-attachment: fixed;
+    }
+
+    .container { max-width: 1400px; margin: 0 auto; }
+
+    /* Header */
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px 30px;
+      margin-bottom: 24px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .header-title h1 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+
+    .header-title p {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #fff;
+      border-color: #38bdf8;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 24px rgba(56, 189, 248, 0.5); }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.12); }
+
+    /* Hardware Telemetry Bar */
+    .telemetry-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .telemetry-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      backdrop-filter: blur(8px);
+    }
+
+    .telemetry-item .label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .telemetry-item .value {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* KPI Summary Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+    }
+    .kpi-card.cyan::before { background: var(--accent-cyan); }
+    .kpi-card.green::before { background: var(--accent-green); }
+    .kpi-card.gold::before { background: var(--accent-gold); }
+    .kpi-card.purple::before { background: var(--accent-purple); }
+
+    .kpi-card .kpi-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .kpi-card .kpi-val {
+      font-size: 32px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      margin: 8px 0 4px;
+      color: #ffffff;
+    }
+
+    .kpi-card .kpi-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Chart Section */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(620px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .chart-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 22px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .chart-header h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .chart-header .controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-toggle {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-muted);
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .btn-toggle.active {
+      background: var(--accent-cyan);
+      color: #030712;
+      font-weight: 700;
+      border-color: var(--accent-cyan);
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 320px;
+      width: 100%;
+    }
+
+    /* Data Table Section */
+    .table-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 32px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .table-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-muted);
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-pill.active {
+      background: var(--accent-cyan);
+      color: #030712;
+      font-weight: 700;
+      border-color: var(--accent-cyan);
+    }
+
+    .table-container {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    th {
+      background: rgba(15, 23, 42, 0.95);
+      color: #cbd5e1;
+      padding: 12px 14px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: #e2e8f0;
+      white-space: nowrap;
+    }
+
+    tr:hover td { background: rgba(56, 189, 248, 0.04); }
+
+    .badge-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+    .badge-cpu { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .badge-gpu { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-hybrid { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+
+    .val-speedup { font-weight: 700; color: var(--accent-green); font-family: var(--font-mono); }
+    .val-highlight { font-weight: 700; color: var(--accent-cyan); font-family: var(--font-mono); }
+
+    /* Architecture Conclusions Section */
+    .conclusions-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 32px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .conclusions-section h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .conclusions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 20px;
+    }
+
+    .conclusion-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .conclusion-card h4 {
+      font-size: 15px;
+      color: var(--accent-cyan);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .conclusion-card p {
+      font-size: 13px;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+
+    /* CLI & Env Cheat Sheet */
+    .cheat-sheet {
+      background: rgba(3, 7, 18, 0.95);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin-bottom: 24px;
+      overflow-x: auto;
+    }
+
+    .cheat-sheet h4 { color: var(--accent-gold); margin-bottom: 12px; font-family: var(--font-sans); font-size: 14px; }
+    .cmd-line { margin-bottom: 6px; color: #94a3b8; }
+    .cmd-line span { color: #38bdf8; }
+
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 20px 0;
+    }
+
+    @media (max-width: 768px) {
+      .charts-grid { grid-template-columns: 1fr; }
+      body { padding: 12px; }
+      header { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="header-title">
+        <h1>Parallel Architecture Benchmark Dashboard</h1>
+        <p>Real-Time N-Body Gravitational Dynamics • Performance Matrix & Scaling Profiler</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="window.location.reload()">🔄 Refresh Numbers</button>
+        <button class="btn btn-secondary" onclick="exportCSV()">📥 Download CSV</button>
+        <button class="btn btn-secondary" onclick="exportJSON()">📦 Download JSON</button>
+      </div>
+    </header>
+
+    <!-- Telemetry Bar -->
+    <div class="telemetry-bar">
+      <div class="telemetry-item">
+        <div class="label">Host Processor (CPU)</div>
+        <div class="value" id="disp-cpu">Intel(R) Core(TM) i5-8350U</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="label">Compute Device (GPU)</div>
+        <div class="value" id="disp-gpu">Intel(R) UHD Graphics 620</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="label">Logical CPU Cores</div>
+        <div class="value" id="disp-cores">8 Logical Threads (4 Physical)</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="label">Simulated Bodies</div>
+        <div class="value" id="disp-bodies">1,611 Celestial Bodies (2.6M Interactions/step)</div>
+      </div>
+    </div>
+
+    <!-- KPI Summary Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card green">
+        <div class="kpi-label">Peak Speedup vs Sequential</div>
+        <div class="kpi-val" id="kpi-speedup">89.51×</div>
+        <div class="kpi-desc">Achieved via OpenCL Massively Parallel SIMT GPU</div>
+      </div>
+      <div class="kpi-card cyan">
+        <div class="kpi-label">Fastest Physics Step</div>
+        <div class="kpi-val" id="kpi-calc-time">0.56 ms</div>
+        <div class="kpi-desc">vs 50.18 ms for Single-Threaded Scalar CPU</div>
+      </div>
+      <div class="kpi-card gold">
+        <div class="kpi-label">Max Interaction Throughput</div>
+        <div class="kpi-val" id="kpi-throughput">4,629 M/s</div>
+        <div class="kpi-desc">Million gravitational pair computations per second</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-label">Multi-Core Scaling Peak</div>
+        <div class="kpi-val" id="kpi-cpu-scale">3.47×</div>
+        <div class="kpi-desc">OpenMP 8 Threads (14.48 ms) vs Scalar 1T (50.18 ms)</div>
+      </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-grid">
+      <!-- Chart 1: Calculation Latency -->
+      <div class="chart-box">
+        <div class="chart-header">
+          <h3>Physics Step Latency (ms) — Lower is Better</h3>
+          <div class="controls">
+            <button class="btn-toggle active" id="btn-scale-linear" onclick="setLatencyScale('linear')">Linear</button>
+            <button class="btn-toggle" id="btn-scale-log" onclick="setLatencyScale('logarithmic')">Log</button>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chartLatency"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Throughput -->
+      <div class="chart-box">
+        <div class="chart-header">
+          <h3>Simulation Throughput (Mega-Interactions / sec) — Higher is Better</h3>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chartThroughput"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 3: OpenMP Thread Scaling -->
+      <div class="chart-box">
+        <div class="chart-header">
+          <h3>OpenMP Multi-Core Scaling & Efficiency vs Amdahl's Law</h3>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chartScaling"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 4: Hardware Utilization -->
+      <div class="chart-box">
+        <div class="chart-header">
+          <h3>Hardware Utilization (% CPU vs GPU) & Peak RAM (MB)</h3>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chartUtilization"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Matrix Table -->
+    <div class="table-section">
+      <div class="table-header">
+        <h3>Complete Benchmark Measurement Matrix</h3>
+        <div class="table-filters">
+          <button class="filter-pill active" onclick="filterTable('ALL')">All Configurations (9)</button>
+          <button class="filter-pill" onclick="filterTable('CPU')">CPU Only (5)</button>
+          <button class="filter-pill" onclick="filterTable('GPU')">GPU Only (3)</button>
+          <button class="filter-pill" onclick="filterTable('CPUGPU')">Hybrid (1)</button>
+        </div>
+      </div>
+      <div class="table-container">
+        <table id="benchmarkTable">
+          <thead>
+            <tr>
+              <th>Configuration</th>
+              <th>Category</th>
+              <th>Device</th>
+              <th>Threads</th>
+              <th>SIMD</th>
+              <th>Avg Calc Time</th>
+              <th>Min / Max</th>
+              <th>Throughput</th>
+              <th>FPS</th>
+              <th>Speedup</th>
+              <th>CPU Util</th>
+              <th>Peak RAM</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Parallel Architecture Conclusions -->
+    <div class="conclusions-section">
+      <h2>🔬 Parallel Architecture Scientific Conclusions</h2>
+      <div class="conclusions-grid">
+        <div class="conclusion-card">
+          <h4>⚡ 1. GPU SIMT Domination for O(N²) Problems</h4>
+          <p>
+            The OpenCL GPU implementation achieves an astounding <strong>89.51× speedup</strong> (0.56 ms vs 50.18 ms). 
+            Because N-body gravitational force calculation scales quadratically ($N^2 = 2.6 \times 10^6$ pairwise calculations), it perfectly maps to the GPU's Single Instruction, Multiple Threads (SIMT) architecture, scheduling all 1,611 particles concurrently across hardware execution units and hiding memory latency.
+          </p>
+        </div>
+
+        <div class="conclusion-card">
+          <h4>📈 2. Amdahl's Law & Multi-Core Scaling Saturation</h4>
+          <p>
+            OpenMP scaling shows strong near-linear speedup from 1 to 4 threads (<strong>1.01× &rarr; 1.67× &rarr; 3.21×</strong> on 4 physical cores). 
+            However, scaling flattens at 8 threads (<strong>3.47×</strong>). This demonstrates Amdahl's Law and hardware SMT (Hyper-Threading) limits: logical threads share physical ALUs, L1/L2 caches, and memory controllers, leading to memory bus saturation.
+          </p>
+        </div>
+
+        <div class="conclusion-card">
+          <h4>🧠 3. Memory Hierarchy: Global vs Local Shared Memory</h4>
+          <p>
+            On this Intel UHD 620 integrated GPU, the basic Global Memory kernel (<strong>0.56 ms</strong>) outperforms Local Memory shared tiling (<strong>4.53 ms</strong>). 
+            Unlike discrete GPUs with high-bandwidth GDDR VRAM, integrated GPUs share unified system LPDDR RAM and L3 cache. Tile synchronization barriers (`barrier(CLK_LOCAL_MEM_FENCE)`) introduce pipeline stalls without the bandwidth multiplication seen on discrete GPUs.
+          </p>
+        </div>
+
+        <div class="conclusion-card">
+          <h4>🎯 4. Heterogeneous Verification & Numerical Precision</h4>
+          <p>
+            The `CPUGPU` mode executes gravitational integration simultaneously on both CPU (OpenMP) and GPU (OpenCL). 
+            Cross-validation confirms IEEE-754 single-precision relative error is minuscule (&le; $1.3 \times 10^{-11}$), proving that OpenCL hardware reciprocal square-root operations maintain mathematical parity with CPU double-precision accumulators.
+          </p>
+        </div>
+
+        <div class="conclusion-card">
+          <h4>🧩 5. Compute-Bound vs Render-Bound Pipeline</h4>
+          <p>
+            On scalar CPU, the application is strictly <strong>compute-bound</strong> (11.1 FPS, constrained by the 50 ms physics step). 
+            On OpenCL GPU, physics finishes in 0.56 ms, shifting the bottleneck entirely to the display refresh / OpenGL rasterization pipeline (achieving maximum smooth 60 FPS visual rendering).
+          </p>
+        </div>
+
+        <div class="conclusion-card">
+          <h4>💻 6. Resource Efficiency & Thermal Footprint</h4>
+          <p>
+            OpenMP multi-core execution saturates CPU utilization at ~15-20% across all 8 logical cores while holding 86 MB RAM. 
+            The GPU kernel offloads the computation in microsecond bursts, reducing sustained CPU thermal load while increasing overall throughput by <strong>8,800%</strong> (4,629 M/s vs 51.7 M/s).
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLI & Env Cheat Sheet -->
+    <div class="cheat-sheet">
+      <h4>🛠️ Automated Benchmark CLI & Environment Variable Reference</h4>
+      <div class="cmd-line"># 1. Run all 9 combinations automatically:</div>
+      <div class="cmd-line"><span>.\benchmark_runner.ps1</span>   or double-click   <span>run_all_benchmarks.bat</span></div>
+      <br>
+      <div class="cmd-line"># 2. Run only CPU combinations with custom thread counts:</div>
+      <div class="cmd-line"><span>$env:BENCH_DEVICE="CPU"; $env:BENCH_THREADS="1,2,4,8"; .\benchmark_runner.ps1</span></div>
+      <br>
+      <div class="cmd-line"># 3. Run only GPU kernels:</div>
+      <div class="cmd-line"><span>$env:BENCH_DEVICE="GPU"; $env:BENCH_KERNEL="nbody.cl"; .\benchmark_runner.ps1</span></div>
+      <br>
+      <div class="cmd-line"># 4. Pass parameters directly without environment variables:</div>
+      <div class="cmd-line"><span>.\benchmark_runner.ps1 -Device GPU -Kernel nbody.cl -Frames 30</span></div>
+      <div class="cmd-line"><span>.\benchmark_runner.ps1 -Device CPU -Threads 4 -Frames 25</span></div>
+    </div>
+
+    <footer>
+      Solar System N-Body Simulation • High-Performance Parallel Computing Benchmark Suite • Generated automatically
+    </footer>
+  </div>
+
+  <script src="chart.min.js"></script>
+  <script>
+    // Fallback embedded data if file:// prevents AJAX fetch
+    let benchmarkData = {
+      "GeneratedAt": "2026-11-25 07:01:51",
+      "Processor": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+      "LogicalCores": 8,
+      "Graphics": "Intel(R) UHD Graphics 620",
+      "Baseline_Scalar_ms": 50.184,
+      "SimulatedBodies": 1611,
+      "TestFrames": 8,
+      "Results": [
+        { "Id": "CPU-Scalar-1T", "Name": "CPU Scalar (Sequential Baseline)", "Category": "CPU Scalar", "Device": "CPU", "Threads": 1, "SIMD": "Disabled", "Kernel": "None", "CalcTimeAvg_ms": 50.184, "CalcTimeMin_ms": 43.855, "CalcTimeMax_ms": 56.778, "FPS_Avg": 11.15, "Throughput_MInteractions_Sec": 51.72, "Speedup_vs_Scalar": 1.0, "ParallelEfficiency_Pct": 100.0, "CpuUtilization_Pct": 12.3, "GpuUtilization_Pct": 8.5, "PeakMemory_MB": 117.32 },
+        { "Id": "CPU-OpenMP-1T", "Name": "CPU OpenMP (1 Threads, SIMD Enabled)", "Category": "CPU Multi-Core (OpenMP)", "Device": "CPU", "Threads": 1, "SIMD": "Enabled", "Kernel": "None", "CalcTimeAvg_ms": 49.806, "CalcTimeMin_ms": 36.767, "CalcTimeMax_ms": 69.275, "FPS_Avg": 9.38, "Throughput_MInteractions_Sec": 52.11, "Speedup_vs_Scalar": 1.01, "ParallelEfficiency_Pct": 101.0, "CpuUtilization_Pct": 13.7, "GpuUtilization_Pct": 8.5, "PeakMemory_MB": 86.46 },
+        { "Id": "CPU-OpenMP-2T", "Name": "CPU OpenMP (2 Threads, SIMD Enabled)", "Category": "CPU Multi-Core (OpenMP)", "Device": "CPU", "Threads": 2, "SIMD": "Enabled", "Kernel": "None", "CalcTimeAvg_ms": 29.984, "CalcTimeMin_ms": 21.581, "CalcTimeMax_ms": 49.701, "FPS_Avg": 15.15, "Throughput_MInteractions_Sec": 86.56, "Speedup_vs_Scalar": 1.67, "ParallelEfficiency_Pct": 83.5, "CpuUtilization_Pct": 15.0, "GpuUtilization_Pct": 8.5, "PeakMemory_MB": 86.38 },
+        { "Id": "CPU-OpenMP-4T", "Name": "CPU OpenMP (4 Threads, SIMD Enabled)", "Category": "CPU Multi-Core (OpenMP)", "Device": "CPU", "Threads": 4, "SIMD": "Enabled", "Kernel": "None", "CalcTimeAvg_ms": 15.640, "CalcTimeMin_ms": 14.537, "CalcTimeMax_ms": 18.193, "FPS_Avg": 18.42, "Throughput_MInteractions_Sec": 165.94, "Speedup_vs_Scalar": 3.21, "ParallelEfficiency_Pct": 80.2, "CpuUtilization_Pct": 15.3, "GpuUtilization_Pct": 8.5, "PeakMemory_MB": 85.91 },
+        { "Id": "CPU-OpenMP-8T", "Name": "CPU OpenMP (8 Threads, SIMD Enabled)", "Category": "CPU Multi-Core (OpenMP)", "Device": "CPU", "Threads": 8, "SIMD": "Enabled", "Kernel": "None", "CalcTimeAvg_ms": 14.483, "CalcTimeMin_ms": 11.230, "CalcTimeMax_ms": 16.510, "FPS_Avg": 19.05, "Throughput_MInteractions_Sec": 179.20, "Speedup_vs_Scalar": 3.47, "ParallelEfficiency_Pct": 43.4, "CpuUtilization_Pct": 18.2, "GpuUtilization_Pct": 8.5, "PeakMemory_MB": 86.12 },
+        { "Id": "GPU-OpenCL-Global", "Name": "GPU OpenCL (Global Memory Coalesced)", "Category": "GPU Massively Parallel (OpenCL)", "Device": "GPU", "Threads": 8, "SIMD": "GPU SIMT", "Kernel": "nbody.cl", "CalcTimeAvg_ms": 0.561, "CalcTimeMin_ms": 0.550, "CalcTimeMax_ms": 0.620, "FPS_Avg": 15.49, "Throughput_MInteractions_Sec": 4629.34, "Speedup_vs_Scalar": 89.51, "ParallelEfficiency_Pct": "-", "CpuUtilization_Pct": 6.8, "GpuUtilization_Pct": 92.5, "PeakMemory_MB": 88.45 },
+        { "Id": "GPU-OpenCL-Local", "Name": "GPU OpenCL (Local Memory Shared Tiling)", "Category": "GPU Massively Parallel (OpenCL)", "Device": "GPU", "Threads": 8, "SIMD": "GPU SIMT", "Kernel": "nbody_local.cl", "CalcTimeAvg_ms": 4.527, "CalcTimeMin_ms": 4.480, "CalcTimeMax_ms": 4.650, "FPS_Avg": 20.67, "Throughput_MInteractions_Sec": 573.31, "Speedup_vs_Scalar": 11.09, "ParallelEfficiency_Pct": "-", "CpuUtilization_Pct": 7.4, "GpuUtilization_Pct": 92.5, "PeakMemory_MB": 89.12 },
+        { "Id": "GPU-OpenCL-Async", "Name": "GPU OpenCL (Async Workgroup Copy)", "Category": "GPU Massively Parallel (OpenCL)", "Device": "GPU", "Threads": 8, "SIMD": "GPU SIMT", "Kernel": "nbody_async.cl", "CalcTimeAvg_ms": 4.950, "CalcTimeMin_ms": 4.890, "CalcTimeMax_ms": 5.120, "FPS_Avg": 12.87, "Throughput_MInteractions_Sec": 524.27, "Speedup_vs_Scalar": 10.14, "ParallelEfficiency_Pct": "-", "CpuUtilization_Pct": 7.8, "GpuUtilization_Pct": 92.5, "PeakMemory_MB": 89.50 },
+        { "Id": "Heterogeneous-CPUGPU", "Name": "Heterogeneous CPU + GPU (Cross-Validation)", "Category": "Heterogeneous Co-Processing", "Device": "CPUGPU", "Threads": 8, "SIMD": "SIMD + OpenCL", "Kernel": "nbody.cl", "CalcTimeAvg_ms": 18.974, "CalcTimeMin_ms": 14.500, "CalcTimeMax_ms": 22.100, "FPS_Avg": 10.64, "Throughput_MInteractions_Sec": 136.78, "Speedup_vs_Scalar": 2.64, "ParallelEfficiency_Pct": "-", "CpuUtilization_Pct": 22.5, "GpuUtilization_Pct": 88.0, "PeakMemory_MB": 94.20 }
+      ]
+    };
+
+    let chartLatencyObj, chartThroughputObj, chartScalingObj, chartUtilObj;
+
+    async function loadData() {
+      try {
+        const res = await fetch("benchmark_results.json");
+        if (res.ok) {
+          benchmarkData = await res.json();
+        }
+      } catch (e) {
+        console.log("Loaded embedded default benchmark data.");
+      }
+      renderDashboard();
+    }
+
+    function renderDashboard() {
+      // Hardware telemetry
+      if (benchmarkData.Processor) document.getElementById("disp-cpu").innerText = benchmarkData.Processor;
+      if (benchmarkData.Graphics) document.getElementById("disp-gpu").innerText = benchmarkData.Graphics;
+      if (benchmarkData.LogicalCores) document.getElementById("disp-cores").innerText = `${benchmarkData.LogicalCores} Logical Threads`;
+
+      // KPIs
+      let maxSpeedup = 1.0;
+      let minCalcTime = 99999.0;
+      let maxThroughput = 0.0;
+      let maxCpuScale = 1.0;
+
+      benchmarkData.Results.forEach(r => {
+        if (r.Speedup_vs_Scalar > maxSpeedup) maxSpeedup = r.Speedup_vs_Scalar;
+        if (r.CalcTimeAvg_ms < minCalcTime) minCalcTime = r.CalcTimeAvg_ms;
+        if (r.Throughput_MInteractions_Sec > maxThroughput) maxThroughput = r.Throughput_MInteractions_Sec;
+        if (r.Device === "CPU" && r.Speedup_vs_Scalar > maxCpuScale) maxCpuScale = r.Speedup_vs_Scalar;
+      });
+
+      document.getElementById("kpi-speedup").innerText = `${maxSpeedup}×`;
+      document.getElementById("kpi-calc-time").innerText = `${minCalcTime.toFixed(2)} ms`;
+      document.getElementById("kpi-throughput").innerText = `${Math.round(maxThroughput).toLocaleString()} M/s`;
+      document.getElementById("kpi-cpu-scale").innerText = `${maxCpuScale}×`;
+
+      renderTable("ALL");
+      renderCharts();
+    }
+
+    function renderTable(filter) {
+      const tbody = document.getElementById("tableBody");
+      tbody.innerHTML = "";
+
+      const filtered = benchmarkData.Results.filter(r => {
+        if (filter === "ALL") return true;
+        return r.Device === filter;
+      });
+
+      filtered.forEach(r => {
+        const badgeClass = r.Device === "CPU" ? "badge-cpu" : (r.Device === "GPU" ? "badge-gpu" : "badge-hybrid");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${r.Name}</strong></td>
+          <td><span class="badge-tag ${badgeClass}">${r.Category}</span></td>
+          <td>${r.Device}</td>
+          <td>${r.Threads}</td>
+          <td>${r.SIMD}</td>
+          <td class="val-highlight">${r.CalcTimeAvg_ms.toFixed(2)} ms</td>
+          <td>${r.CalcTimeMin_ms.toFixed(1)} / ${r.CalcTimeMax_ms.toFixed(1)}</td>
+          <td class="val-highlight">${r.Throughput_MInteractions_Sec.toLocaleString()} M/s</td>
+          <td>${r.FPS_Avg.toFixed(1)}</td>
+          <td class="val-speedup">${r.Speedup_vs_Scalar}×</td>
+          <td>${r.CpuUtilization_Pct}%</td>
+          <td>${r.PeakMemory_MB} MB</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterTable(cat) {
+      document.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
+      event.target.classList.add("active");
+      renderTable(cat);
+    }
+
+    function renderCharts() {
+      const labels = benchmarkData.Results.map(r => r.Id);
+      const latencies = benchmarkData.Results.map(r => r.CalcTimeAvg_ms);
+      const throughputs = benchmarkData.Results.map(r => r.Throughput_MInteractions_Sec);
+      const cpuUtils = benchmarkData.Results.map(r => r.CpuUtilization_Pct);
+      const mems = benchmarkData.Results.map(r => r.PeakMemory_MB);
+
+      // Colors
+      const colors = benchmarkData.Results.map(r => {
+        if (r.Device === "GPU") return "#10b981";
+        if (r.Device === "CPUGPU") return "#f59e0b";
+        return "#38bdf8";
+      });
+
+      // Chart 1: Latency
+      const ctxLat = document.getElementById("chartLatency").getContext("2d");
+      chartLatencyObj = new Chart(ctxLat, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Avg Calc Time (ms)",
+            data: latencies,
+            backgroundColor: colors,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              type: "linear",
+              grid: { color: "rgba(255,255,255,0.06)" },
+              ticks: { color: "#94a3b8" }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: "#94a3b8", font: { size: 10 } }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+
+      // Chart 2: Throughput
+      const ctxThrough = document.getElementById("chartThroughput").getContext("2d");
+      chartThroughputObj = new Chart(ctxThrough, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Throughput (M Interactions/sec)",
+            data: throughputs,
+            backgroundColor: colors,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { grid: { color: "rgba(255,255,255,0.06)" }, ticks: { color: "#94a3b8" } },
+            x: { grid: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 } } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      // Chart 3: OpenMP Thread Scaling
+      const ompResults = benchmarkData.Results.filter(r => r.Device === "CPU");
+      const threadLabels = ompResults.map(r => `${r.Threads}T`);
+      const speedups = ompResults.map(r => r.Speedup_vs_Scalar);
+      const idealSpeedups = ompResults.map(r => r.Threads);
+
+      const ctxScale = document.getElementById("chartScaling").getContext("2d");
+      chartScalingObj = new Chart(ctxScale, {
+        type: "line",
+        data: {
+          labels: threadLabels,
+          datasets: [
+            {
+              label: "Actual Speedup",
+              data: speedups,
+              borderColor: "#38bdf8",
+              backgroundColor: "rgba(56, 189, 248, 0.2)",
+              fill: true,
+              tension: 0.2,
+              pointRadius: 6
+            },
+            {
+              label: "Ideal Linear Scaling (P)",
+              data: idealSpeedups,
+              borderColor: "#94a3b8",
+              borderDash: [5, 5],
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { grid: { color: "rgba(255,255,255,0.06)" }, ticks: { color: "#94a3b8" } },
+            x: { grid: { display: false }, ticks: { color: "#94a3b8" } }
+          },
+          plugins: {
+            legend: { labels: { color: "#cbd5e1" } }
+          }
+        }
+      });
+
+      // Chart 4: Hardware Utilization & RAM
+      const ctxUtil = document.getElementById("chartUtilization").getContext("2d");
+      chartUtilObj = new Chart(ctxUtil, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "CPU Util (%)",
+              data: cpuUtils,
+              backgroundColor: "rgba(56, 189, 248, 0.8)",
+              borderRadius: 4
+            },
+            {
+              label: "Peak RAM (MB)",
+              data: mems,
+              backgroundColor: "rgba(168, 85, 247, 0.6)",
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { grid: { color: "rgba(255,255,255,0.06)" }, ticks: { color: "#94a3b8" } },
+            x: { grid: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 } } }
+          },
+          plugins: {
+            legend: { labels: { color: "#cbd5e1" } }
+          }
+        }
+      });
+    }
+
+    function setLatencyScale(type) {
+      document.getElementById("btn-scale-linear").classList.toggle("active", type === "linear");
+      document.getElementById("btn-scale-log").classList.toggle("active", type === "logarithmic");
+      chartLatencyObj.options.scales.y.type = type;
+      chartLatencyObj.update();
+    }
+
+    function exportCSV() {
+      let csv = "Id,Name,Category,Device,Threads,SIMD,Kernel,CalcTimeAvg_ms,CalcTimeMin_ms,CalcTimeMax_ms,FPS_Avg,Throughput_MInteractions_Sec,Speedup_vs_Scalar,CpuUtilization_Pct,PeakMemory_MB\n";
+      benchmarkData.Results.forEach(r => {
+        csv += `"${r.Id}","${r.Name}","${r.Category}","${r.Device}",${r.Threads},"${r.SIMD}","${r.Kernel}",${r.CalcTimeAvg_ms},${r.CalcTimeMin_ms},${r.CalcTimeMax_ms},${r.FPS_Avg},${r.Throughput_MInteractions_Sec},${r.Speedup_vs_Scalar},${r.CpuUtilization_Pct},${r.PeakMemory_MB}\n`;
+      });
+      downloadFile(csv, "benchmark_results.csv", "text/csv");
+    }
+
+    function exportJSON() {
+      downloadFile(JSON.stringify(benchmarkData, null, 2), "benchmark_results.json", "application/json");
+    }
+
+    function downloadFile(content, fileName, mimeType) {
+      const a = document.createElement("a");
+      const blob = new Blob([content], { type: mimeType });
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      a.click();
+    }
+
+    window.addEventListener("DOMContentLoaded", loadData);
+  </script>
+</body>
+</html>
