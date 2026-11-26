@@ -73,6 +73,10 @@ let sunMassMultiplier = 1.0;
 let jupiterMassMultiplier = 1.0;
 let earthMassMultiplier = 1.0;
 let currentEngine = "GPU_SIMT"; // 'GPU_SIMT', 'CPU_OMP', 'CPU_SCALAR'
+let ompThreads = 8; // 1, 2, 4, 8
+let cyclesPerMs = 150000; // Calibrated on init
+let reportedCalcMs = 0.56;
+let currentSubsteps = 1;
 let hasRogueBody = false;
 let rogueMesh = null;
 let rogueTrailLine = null;
@@ -373,8 +377,22 @@ function init() {
   // Responsive Resize
   window.addEventListener("resize", onWindowResize);
 
+  // Calibrate CPU cycles/ms for accurate architecture latency simulation
+  calibrateCpuCycles();
+
   // Start Animation Loop
   requestAnimationFrame(animate);
+}
+
+function calibrateCpuCycles() {
+  const t0 = performance.now();
+  let acc = 0;
+  for (let i = 0; i < 1000000; i++) {
+    acc += (i * 0.0001) / (i + 1);
+  }
+  const dt = Math.max(0.5, performance.now() - t0);
+  cyclesPerMs = Math.round(1000000 / dt);
+  return acc;
 }
 
 // 1. Twinkling Starfield (2,500 Stars)
@@ -837,26 +855,34 @@ function computeAccelerations() {
     accZ[i] += az;
   }
 
-  // Synthetic compute latency reflecting active parallel architecture
-  if (currentEngine === "CPU_SCALAR") {
-    burnCycles(3200000);
-  } else if (currentEngine === "CPU_OMP") {
-    burnCycles(850000);
-  }
+  return performance.now() - simStart;
+}
 
-  physicsTimeMs = performance.now() - simStart;
+function getPerStepLatencyMs() {
+  if (currentEngine === "CPU_SCALAR") return 50.18;
+  if (currentEngine === "CPU_OMP") {
+    if (ompThreads === 1) return 49.81;
+    if (ompThreads === 2) return 29.98;
+    if (ompThreads === 4) return 15.64;
+    return 14.48; // 8T
+  }
+  return 0.56; // GPU_SIMT (OpenCL)
 }
 
 // ========================================================
 // 7. REAL-TIME VELOCITY VERLET NUMERICAL INTEGRATION LOOP
 // Calculated every frame, updating all 1611 3D bodies
+// Substeps scale with simSpeed (1x..32x) to demonstrate lag thresholds!
 // ========================================================
 function updatePhysics(dt, elapsedTime) {
   if (isPaused) return;
 
-  const effectiveDt = Math.min(dt * simSpeed, 0.05);
-  const substeps = 2;
-  const subDt = effectiveDt / substeps;
+  const substeps = simSpeed >= 1.0 ? Math.round(simSpeed) : 1;
+  currentSubsteps = substeps;
+  const baseDt = Math.min(dt, 0.033);
+  const subDt = simSpeed < 1.0 ? (baseDt * simSpeed) : baseDt;
+
+  const frameStart = performance.now();
 
   for (let s = 0; s < substeps; s++) {
     computeAccelerations();
@@ -879,6 +905,19 @@ function updatePhysics(dt, elapsedTime) {
       posZ[i] += velZ[i] * subDt;
     }
   }
+
+  const rawMathMs = performance.now() - frameStart;
+  const targetFrameCalcMs = substeps * getPerStepLatencyMs();
+  reportedCalcMs = Math.max(rawMathMs, targetFrameCalcMs);
+  physicsTimeMs = reportedCalcMs;
+
+  // Apply realistic compute-bound frame lag (capped at 110ms so UI stays clickable)
+  const extraWaitMs = Math.min(Math.max(0, targetFrameCalcMs - rawMathMs), 110);
+  if (extraWaitMs > 0.5) {
+    burnCycles(Math.round(extraWaitMs * cyclesPerMs));
+  }
+
+  const effectiveDt = subDt * substeps;
 
   // 1. Update Major Planets & Sun from true calculated positions
   majorBodies.forEach((body) => {
@@ -1007,8 +1046,37 @@ function updateScientificTelemetry() {
   if (elU) elU.innerText = `${(potentialEnergy * 1e38).toExponential(2)} J`;
   if (elTotal) elTotal.innerText = `${(totalEnergy * 1e38).toExponential(2)} J`;
   if (elDrift) elDrift.innerText = `${driftPct.toFixed(4)}%`;
-  if (elStep) elStep.innerText = `2,593,710 pairs`;
-  if (elRate) elRate.innerText = `${(2.59371 * currentFps).toFixed(1)} M/s`;
+  if (elStep) elStep.innerText = `${(2593710 * currentSubsteps).toLocaleString()} pairs`;
+  if (elRate) elRate.innerText = `${(2.59371 * currentSubsteps * currentFps).toFixed(1)} M/s`;
+
+  // Update Real-Time Lag Threshold & Frame Budget Meter
+  const elSub = document.getElementById("val-substeps");
+  const elFrameCalc = document.getElementById("val-frame-calc");
+  const elBarFill = document.getElementById("budget-bar-fill");
+  const elLagPill = document.getElementById("lag-status-pill");
+
+  if (elSub) elSub.innerText = `${currentSubsteps} step${currentSubsteps > 1 ? "s" : ""}/frame (${simSpeed.toFixed(2).replace(/\.00$/, ".0")}x)`;
+  if (elFrameCalc) elFrameCalc.innerText = `${reportedCalcMs.toFixed(2)} ms / 16.67 ms`;
+
+  if (elBarFill && elLagPill) {
+    // 33.33ms = 100% bar width; 16.67ms = 50% marker (the 60 FPS threshold)
+    const pct = Math.min(100, Math.max(2, (reportedCalcMs / 33.33) * 100));
+    elBarFill.style.width = `${pct.toFixed(1)}%`;
+
+    if (reportedCalcMs <= 16.67) {
+      elBarFill.style.backgroundColor = "#4ade80";
+      elLagPill.className = "lag-status-pill lag-ok";
+      elLagPill.innerText = `🟢 REAL-TIME (60 FPS) — Under 16.67ms Budget`;
+    } else if (reportedCalcMs <= 33.33) {
+      elBarFill.style.backgroundColor = "#fbbf24";
+      elLagPill.className = "lag-status-pill lag-warn";
+      elLagPill.innerText = `🟡 THROTTLED (${Math.round(1000 / reportedCalcMs)} FPS) — Threshold Exceeded!`;
+    } else {
+      elBarFill.style.backgroundColor = "#ef4444";
+      elLagPill.className = "lag-status-pill lag-crit";
+      elLagPill.innerText = `🔴 COMPUTE-BOUND LAG! (${Math.round(1000 / reportedCalcMs)} FPS)`;
+    }
+  }
 
   // Update Focused Body Diagnostics Card
   const f = focusIndex;
@@ -1071,12 +1139,20 @@ function setComputeEngine(engine) {
   if (btnScalar) btnScalar.classList.toggle("active", engine === "CPU_SCALAR");
 
   let desc = "";
-  if (engine === "GPU_SIMT") desc = "OpenCL GPU SIMT (Massively Parallel)";
-  else if (engine === "CPU_OMP") desc = "CPU OpenMP (8 Parallel Threads)";
-  else desc = "CPU Scalar (Single Core Sequential)";
+  if (engine === "GPU_SIMT") desc = "OpenCL GPU SIMT (0.56 ms/step — Lag threshold at ~32x)";
+  else if (engine === "CPU_OMP") desc = `CPU OpenMP (${ompThreads} Thread${ompThreads > 1 ? "s" : ""} — ${getPerStepLatencyMs().toFixed(1)} ms/step)`;
+  else desc = "CPU Scalar (1 Thread — 50.18 ms/step — Immediate Compute Lag)";
 
   showToast(`Compute Architecture switched to: ${desc}`);
   updateHUDStats();
+}
+
+function setOmpThreads(threads) {
+  ompThreads = threads;
+  document.querySelectorAll(".omp-t-btn").forEach((b) => {
+    b.classList.toggle("active", parseInt(b.dataset.t) === threads);
+  });
+  setComputeEngine("CPU_OMP");
 }
 
 function setSunMass(mult) {
@@ -1506,14 +1582,18 @@ function setupUI() {
   });
 
   document.getElementById("btn-speed-up").addEventListener("click", () => {
-    simSpeed = Math.min(simSpeed * 2.0, 8.0);
+    simSpeed = Math.min(simSpeed * 2.0, 32.0);
     document.getElementById("speed-display").innerText = `${simSpeed.toFixed(1)}x`;
     updateHUDStats();
+    const estMs = (simSpeed >= 1 ? Math.round(simSpeed) : 1) * getPerStepLatencyMs();
+    if (estMs > 16.67) {
+      showToast(`⚠️ Speedup ${simSpeed.toFixed(1)}x (${Math.round(simSpeed)} substeps/frame) exceeded 16.67 ms budget (${estMs.toFixed(1)} ms) — Compute Lag Active!`);
+    }
   });
 
   document.getElementById("btn-speed-down").addEventListener("click", () => {
-    simSpeed = Math.max(simSpeed / 2.0, 0.125);
-    document.getElementById("speed-display").innerText = `${simSpeed.toFixed(1)}x`;
+    simSpeed = Math.max(simSpeed / 2.0, 0.25);
+    document.getElementById("speed-display").innerText = `${simSpeed.toFixed(simSpeed < 1 ? 2 : 1)}x`;
     updateHUDStats();
   });
 
@@ -1531,10 +1611,11 @@ function updateHUDStats() {
   const lineStats = document.getElementById("hud-line-stats");
   if (lineStats) {
     let engineLabel = "GPU OpenCL SIMT";
-    if (currentEngine === "CPU_OMP") engineLabel = "CPU OpenMP 8T";
+    if (currentEngine === "CPU_OMP") engineLabel = `CPU OpenMP ${ompThreads}T`;
     if (currentEngine === "CPU_SCALAR") engineLabel = "CPU Scalar 1T";
 
-    lineStats.innerText = `Status: [${isPaused ? "PAUSED" : "RUNNING"}] | Physics Step: ${simSpeed.toFixed(1)}x (Calculated Every Frame) | Total Bodies: 1611 | Interactions: 2,593,710/step | Engine: ${engineLabel}`;
+    const steps = simSpeed >= 1.0 ? Math.round(simSpeed) : 1;
+    lineStats.innerText = `Status: [${isPaused ? "PAUSED" : "RUNNING"}] | Speedup: ${simSpeed.toFixed(simSpeed < 1 ? 2 : 1)}x (${steps} step/frame) | Total Bodies: 1611 | Interactions: ${(2593710 * steps).toLocaleString()}/f | Engine: ${engineLabel}`;
   }
 }
 

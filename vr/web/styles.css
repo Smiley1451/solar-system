@@ -504,6 +504,80 @@ canvas {
   box-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
 }
 
+.omp-thread-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(15, 23, 42, 0.85);
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.omp-t-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.omp-t-btn:hover {
+  color: #fff;
+  border-color: #38bdf8;
+}
+.omp-t-btn.active {
+  background: #f59e0b;
+  color: #030712;
+  border-color: #fbbf24;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
+}
+
+/* Frame Budget & Lag Threshold Meter */
+.budget-bar-wrap {
+  margin-top: 6px;
+}
+.budget-bar-bg {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.budget-bar-fill {
+  height: 100%;
+  width: 5%;
+  background: #4ade80;
+  transition: width 0.15s ease, background-color 0.2s ease;
+}
+.budget-threshold-marker {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ffffff;
+  box-shadow: 0 0 6px #fff;
+  z-index: 2;
+}
+.lag-status-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 5px;
+}
+.lag-ok { background: rgba(74, 222, 128, 0.18); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
+.lag-warn { background: rgba(251, 191, 36, 0.18); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.4); }
+.lag-crit { background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; animation: pulse 1s infinite; }
+
 /* Physics Inspector Floating Panel */
 #physics-inspector-card {
   position: absolute;

@@ -29,7 +29,14 @@
     <div class="arch-selector-bar">
       <span style="font-size: 11px; color: #94a3b8; margin-right: 4px;">COMPUTE ARCHITECTURE:</span>
       <button id="btn-engine-gpu" class="arch-btn active" onclick="setComputeEngine('GPU_SIMT')">🚀 GPU OpenCL SIMT (0.5ms)</button>
-      <button id="btn-engine-omp" class="arch-btn" onclick="setComputeEngine('CPU_OMP')">⚡ CPU OpenMP 8T (14ms)</button>
+      <button id="btn-engine-omp" class="arch-btn" onclick="setComputeEngine('CPU_OMP')">⚡ CPU OpenMP</button>
+      <div class="omp-thread-group" title="Select OpenMP Thread Count">
+        <span style="font-size: 10px; color: #94a3b8;">Threads:</span>
+        <button class="omp-t-btn" data-t="1" onclick="setOmpThreads(1)">1T</button>
+        <button class="omp-t-btn" data-t="2" onclick="setOmpThreads(2)">2T</button>
+        <button class="omp-t-btn" data-t="4" onclick="setOmpThreads(4)">4T</button>
+        <button class="omp-t-btn active" data-t="8" onclick="setOmpThreads(8)">8T</button>
+      </div>
       <button id="btn-engine-scalar" class="arch-btn" onclick="setComputeEngine('CPU_SCALAR')">⚙️ CPU Scalar 1T (50ms)</button>
       <button id="btn-toggle-inspector" class="arch-btn btn-lab" onclick="togglePhysicsInspector()">🔬 Physics & Mass Lab</button>
     </div>
@@ -40,6 +47,27 @@
     <div class="inspector-header">
       <h3><span>🔬</span> Gravitational Physics & Mass Lab</h3>
       <button class="inspector-close-btn" onclick="togglePhysicsInspector()">✕</button>
+    </div>
+
+    <!-- Real-Time Lag Threshold & Frame Budget Section -->
+    <div class="inspector-section">
+      <div class="inspector-section-title">⏱️ Real-Time Lag Threshold (60 FPS = 16.67 ms)</div>
+      <table class="metrics-table" style="margin-bottom: 4px;">
+        <tr><td class="m-key">Physics Substeps / Frame</td><td class="m-val" id="val-substeps">1 step/frame (1.0x)</td></tr>
+        <tr><td class="m-key">Total Frame Calc Time</td><td class="m-val" id="val-frame-calc">0.56 ms / 16.67 ms</td></tr>
+      </table>
+      <div class="budget-bar-wrap">
+        <div class="budget-bar-bg" title="White line = 16.67 ms (60 FPS Threshold)">
+          <div class="budget-threshold-marker"></div>
+          <div class="budget-bar-fill" id="budget-bar-fill"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:9px; color:#64748b; margin-top:2px;">
+          <span>0 ms</span>
+          <span style="color:#fff;">16.7 ms (Lag Line)</span>
+          <span>33.3+ ms</span>
+        </div>
+        <div id="lag-status-pill" class="lag-status-pill lag-ok">🟢 REAL-TIME (60 FPS)</div>
+      </div>
     </div>
 
     <!-- Physics Mode & Formulation -->
