@@ -26,8 +26,8 @@ let simSpeed = 1.0;
 // Camera Navigation (Spherical Orbit)
 let camYaw = 0.85;
 let camPitch = 0.38;
-let camDistance = 58.0;
-let targetCamDistance = 58.0;
+let camDistance = 68.0;
+let targetCamDistance = 68.0;
 let currentCenter = new THREE.Vector3(0, 0, 0);
 let targetCenter = new THREE.Vector3(0, 0, 0);
 let focusIndex = 0; // 0 = Sun
@@ -68,7 +68,7 @@ const initialVelZ = new Float32Array(N_TOTAL);
 
 // Physical Gravitational Scaling Constants
 const SOFTENING_EPS_SQ = 0.25; // Gravitational softening eps^2 preventing singularity
-const G_SIM = 5.0; // Calibrated for AU = 6.5 so Earth orbits at v = sqrt(5.0 / 6.5) = 0.877
+const G_SIM = 5.8; // Calibrated for AU = 7.5 so Earth orbits at v = sqrt(5.8 / 7.5) = 0.879
 let sunMassMultiplier = 1.0;
 let jupiterMassMultiplier = 1.0;
 let earthMassMultiplier = 1.0;
@@ -87,6 +87,7 @@ let initialTotalEnergy = 0;
 // Celestial Bodies & Shaders
 let bodies = [];
 let majorBodies = [];
+let moons = [];
 let motionTrails = [];
 let billboardLabels = [];
 let asteroidPoints, kuiperPoints, oortPoints;
@@ -100,21 +101,33 @@ let lastFpsTime = performance.now();
 let currentFps = 60.0;
 let physicsTimeMs = 0.56;
 
-// Scale: 1 AU = 6.5 world units (ensures Mercury at 2.52 > Sun+Corona 1.94, zero overlap!)
-const AU = 6.5;
+// Scale: 1 AU = 7.5 world units (ensures Mercury at 2.90 > Sun+Corona 2.10, zero overlap!)
+const AU = 7.5;
 
-// Definitions matching SolarSystemDataSet.cpp & SolarSystemVisuals.cpp
+// Definitions matching SolarSystemDataSet.cpp & SolarSystemVisuals.cpp (visual radii enlarged for clear visibility; masses unchanged!)
 const PLANET_DATA = [
-  { id: 0, name: "SUN", type: "G2V Star", rAU: 0.0, radius: 1.55, color: [1.0, 0.9, 0.2], period: "Center", mass: "1.989 × 10³⁰ kg", realMassKg: 1.989e30, simMass: 1000.0 },
-  { id: 1, name: "MERCURY", type: "Terrestrial", rAU: 0.387, radius: 0.26, color: [0.68, 0.65, 0.62], period: "87.97 days", mass: "3.30 × 10²³ kg", realMassKg: 3.301e23, simMass: 0.000165 },
-  { id: 2, name: "VENUS", type: "Terrestrial", rAU: 0.723, radius: 0.42, color: [0.95, 0.78, 0.30], period: "224.7 days", mass: "4.87 × 10²⁴ kg", realMassKg: 4.867e24, simMass: 0.00245 },
-  { id: 3, name: "EARTH", type: "Terrestrial", rAU: 1.000, radius: 0.46, color: [0.22, 0.74, 0.97], period: "365.25 days", mass: "5.97 × 10²⁴ kg", realMassKg: 5.972e24, simMass: 0.00300 },
-  { id: 4, name: "MARS", type: "Terrestrial", rAU: 1.524, radius: 0.34, color: [0.94, 0.30, 0.25], period: "686.98 days", mass: "6.42 × 10²³ kg", realMassKg: 6.417e23, simMass: 0.00032 },
-  { id: 5, name: "JUPITER", type: "Gas Giant", rAU: 2.700, radius: 1.20, color: [0.85, 0.55, 0.20], period: "11.86 yrs", mass: "1.90 × 10²⁷ kg", realMassKg: 1.898e27, simMass: 0.955 },
-  { id: 6, name: "SATURN", type: "Gas Giant (Rings)", rAU: 3.500, radius: 1.00, color: [0.96, 0.85, 0.45], period: "29.46 yrs", mass: "5.68 × 10²⁶ kg", realMassKg: 5.683e26, simMass: 0.286, hasRings: true },
-  { id: 7, name: "URANUS", type: "Ice Giant", rAU: 4.400, radius: 0.68, color: [0.30, 0.85, 0.90], period: "84.01 yrs", mass: "8.68 × 10²⁵ kg", realMassKg: 8.681e25, simMass: 0.0436 },
-  { id: 8, name: "NEPTUNE", type: "Ice Giant", rAU: 5.300, radius: 0.66, color: [0.25, 0.55, 0.95], period: "164.8 yrs", mass: "1.02 × 10²⁶ kg", realMassKg: 1.024e26, simMass: 0.0515 },
-  { id: 9, name: "PLUTO", type: "Dwarf Planet", rAU: 6.200, radius: 0.24, color: [0.65, 0.65, 0.70], period: "247.9 yrs", mass: "1.30 × 10²² kg", realMassKg: 1.303e22, simMass: 0.000006 }
+  { id: 0, name: "SUN", type: "G2V Star", rAU: 0.0, radius: 1.75, color: [1.0, 0.9, 0.2], period: "Center", mass: "1.989 × 10³⁰ kg", realMassKg: 1.989e30, simMass: 1000.0 },
+  { id: 1, name: "MERCURY", type: "Terrestrial", rAU: 0.387, radius: 0.45, color: [0.68, 0.65, 0.62], period: "87.97 days", mass: "3.30 × 10²³ kg", realMassKg: 3.301e23, simMass: 0.000165 },
+  { id: 2, name: "VENUS", type: "Terrestrial", rAU: 0.723, radius: 0.68, color: [0.95, 0.78, 0.30], period: "224.7 days", mass: "4.87 × 10²⁴ kg", realMassKg: 4.867e24, simMass: 0.00245 },
+  { id: 3, name: "EARTH", type: "Terrestrial", rAU: 1.000, radius: 0.75, color: [0.22, 0.74, 0.97], period: "365.25 days", mass: "5.97 × 10²⁴ kg", realMassKg: 5.972e24, simMass: 0.00300 },
+  { id: 4, name: "MARS", type: "Terrestrial", rAU: 1.524, radius: 0.56, color: [0.94, 0.30, 0.25], period: "686.98 days", mass: "6.42 × 10²³ kg", realMassKg: 6.417e23, simMass: 0.00032 },
+  { id: 5, name: "JUPITER", type: "Gas Giant", rAU: 2.700, radius: 1.65, color: [0.85, 0.55, 0.20], period: "11.86 yrs", mass: "1.90 × 10²⁷ kg", realMassKg: 1.898e27, simMass: 0.955 },
+  { id: 6, name: "SATURN", type: "Gas Giant (Rings)", rAU: 3.500, radius: 1.40, color: [0.96, 0.85, 0.45], period: "29.46 yrs", mass: "5.68 × 10²⁶ kg", realMassKg: 5.683e26, simMass: 0.286, hasRings: true },
+  { id: 7, name: "URANUS", type: "Ice Giant", rAU: 4.400, radius: 1.00, color: [0.30, 0.85, 0.90], period: "84.01 yrs", mass: "8.68 × 10²⁵ kg", realMassKg: 8.681e25, simMass: 0.0436 },
+  { id: 8, name: "NEPTUNE", type: "Ice Giant", rAU: 5.300, radius: 0.98, color: [0.25, 0.55, 0.95], period: "164.8 yrs", mass: "1.02 × 10²⁶ kg", realMassKg: 1.024e26, simMass: 0.0515 },
+  { id: 9, name: "PLUTO", type: "Dwarf Planet", rAU: 6.200, radius: 0.42, color: [0.65, 0.65, 0.70], period: "247.9 yrs", mass: "1.30 × 10²² kg", realMassKg: 1.303e22, simMass: 0.000006 }
+];
+
+// Sub-Planets / Natural Satellites (Moons) orbiting their parent planets
+const MOON_DATA = [
+  { name: "MOON", parentId: 3, dist: 1.45, radius: 0.21, color: 0xd1d5db, speed: 2.2, inclination: 0.09 },
+  { name: "PHOBOS", parentId: 4, dist: 0.95, radius: 0.12, color: 0xa8a29e, speed: 3.4, inclination: 0.05 },
+  { name: "IO", parentId: 5, dist: 2.35, radius: 0.20, color: 0xfacc15, speed: 2.8, inclination: 0.02 },
+  { name: "EUROPA", parentId: 5, dist: 2.85, radius: 0.18, color: 0xe2e8f0, speed: 2.1, inclination: 0.03 },
+  { name: "GANYMEDE", parentId: 5, dist: 3.45, radius: 0.26, color: 0x94a3b8, speed: 1.5, inclination: 0.02 },
+  { name: "CALLISTO", parentId: 5, dist: 4.10, radius: 0.23, color: 0x64748b, speed: 1.1, inclination: 0.04 },
+  { name: "TITAN", parentId: 6, dist: 3.90, radius: 0.26, color: 0xf59e0b, speed: 1.4, inclination: 0.05 },
+  { name: "TRITON", parentId: 8, dist: 1.80, radius: 0.19, color: 0xbae6fd, speed: -1.8, inclination: 0.22 }
 ];
 
 // GLSL Shaders ported directly from SolarSystemVisuals.cpp
@@ -367,6 +380,7 @@ function init() {
   // Build Astronomical Universe
   createStarfield();
   createPlanetarySystem();
+  createMoons();
   createAsteroidBelt();
   createKuiperBelt();
   createOortCloud();
@@ -550,6 +564,21 @@ function createPlanetarySystem() {
       velZ[index] = vOrb * Math.cos(initialAngle);
 
       masses[index] = def.simMass;
+
+      // Original Keplerian Reference Orbit Ring (shows unperturbed path for mass-effect comparison)
+      const curve = new THREE.EllipseCurve(0, 0, dist3D, dist3D, 0, 2 * Math.PI, false, 0);
+      const pts = curve.getPoints(160).map(p => new THREE.Vector3(p.x, 0, p.y));
+      const refGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const refMat = new THREE.LineDashedMaterial({
+        color: new THREE.Color(def.color[0], def.color[1], def.color[2]),
+        dashSize: 0.7,
+        gapSize: 0.45,
+        transparent: true,
+        opacity: 0.42
+      });
+      const refLine = new THREE.Line(refGeo, refMat);
+      refLine.computeLineDistances();
+      scene.add(refLine);
     }
 
     // Save Initial Baseline for Scientific Reset
@@ -564,12 +593,12 @@ function createPlanetarySystem() {
     // 3D Billboard Label
     const hexColor = index === 0 ? "#fbbf24" : (index === 3 ? "#38bdf8" : (index === 4 ? "#ef4444" : "#e2e8f0"));
     const labelSprite = createBillboardLabel(def.name, hexColor);
-    labelSprite.position.set(0, def.radius + 1.2, 0);
+    labelSprite.position.set(0, def.radius + 1.25, 0);
     mesh.add(labelSprite);
     billboardLabels.push(labelSprite);
 
-    // Motion Trail Geometry (60 historical physics positions)
-    const trailLength = 60;
+    // Live Motion Trail Geometry (140 historical physics positions to show divergence from original orbit)
+    const trailLength = 140;
     const trailPositions = new Float32Array(trailLength * 3);
     const trailColors = new Float32Array(trailLength * 4);
     for (let t = 0; t < trailLength; t++) {
@@ -577,7 +606,7 @@ function createPlanetarySystem() {
       trailPositions[t * 3 + 1] = posY[index];
       trailPositions[t * 3 + 2] = posZ[index];
 
-      const alpha = (t / trailLength) * 0.65;
+      const alpha = (t / trailLength) * 0.85;
       trailColors[t * 4]     = def.color[0];
       trailColors[t * 4 + 1] = def.color[1];
       trailColors[t * 4 + 2] = def.color[2];
@@ -624,6 +653,39 @@ function createPlanetarySystem() {
   const kuiperLabel = createBillboardLabel("★ KUIPER BELT (N-BODY GRAVITY)", "#38bdf8");
   kuiperLabel.position.set(6.0 * AU, 1.5, 0);
   scene.add(kuiperLabel);
+}
+
+// ========================================================
+// 2b. Sub-Planets / Natural Satellites (Moons)
+// ========================================================
+function createMoons() {
+  MOON_DATA.forEach((mDef, idx) => {
+    const geo = new THREE.SphereGeometry(mDef.radius, 20, 20);
+    const mat = new THREE.MeshStandardMaterial({
+      color: mDef.color,
+      roughness: 0.75,
+      metalness: 0.1,
+      emissive: mDef.color,
+      emissiveIntensity: 0.12
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+
+    // Subtle moon orbital ring centered on parent planet
+    const curve = new THREE.EllipseCurve(0, 0, mDef.dist, mDef.dist, 0, 2 * Math.PI, false, 0);
+    const pts = curve.getPoints(64).map(p => new THREE.Vector3(p.x, Math.sin(Math.atan2(p.y, p.x)) * mDef.dist * mDef.inclination, p.y));
+    const orbitGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    const orbitMat = new THREE.LineBasicMaterial({ color: mDef.color, transparent: true, opacity: 0.22 });
+    const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+    scene.add(orbitLine);
+
+    scene.add(mesh);
+    moons.push({
+      def: mDef,
+      mesh: mesh,
+      orbitLine: orbitLine,
+      angle: idx * 1.15
+    });
+  });
 }
 
 // ========================================================
@@ -934,7 +996,7 @@ function updatePhysics(dt, elapsedTime) {
     // Motion Trail updated from actual integrated trajectory
     if (idx > 0) {
       body.trailHistory.push(new THREE.Vector3(posX[idx], posY[idx], posZ[idx]));
-      if (body.trailHistory.length > 60) body.trailHistory.shift();
+      if (body.trailHistory.length > 140) body.trailHistory.shift();
 
       const trailPos = body.trailLine.geometry.attributes.position.array;
       for (let t = 0; t < body.trailHistory.length; t++) {
@@ -944,6 +1006,17 @@ function updatePhysics(dt, elapsedTime) {
       }
       body.trailLine.geometry.attributes.position.needsUpdate = true;
     }
+  });
+
+  // 1b. Update Moons (Sub-Planets) orbiting their parent planet's real-time position
+  moons.forEach((m) => {
+    const p = m.def.parentId;
+    m.angle += m.def.speed * effectiveDt * 0.65;
+    const mx = posX[p] + m.def.dist * Math.cos(m.angle);
+    const my = posY[p] + Math.sin(m.angle) * m.def.dist * m.def.inclination;
+    const mz = posZ[p] + m.def.dist * Math.sin(m.angle);
+    m.mesh.position.set(mx, my, mz);
+    m.orbitLine.position.set(posX[p], posY[p], posZ[p]);
   });
 
   // 2. Update Rogue Body Mesh & Trail if active
@@ -1636,10 +1709,10 @@ function focusOnBody(index) {
     }
   }
 
-  if (index === 0) targetCamDistance = 28.0;
-  else if (def.hasRings) targetCamDistance = 7.5;
-  else if (def.radius > 0.8) targetCamDistance = 6.0;
-  else targetCamDistance = 4.2;
+  if (index === 0) targetCamDistance = 32.0;
+  else if (def.hasRings) targetCamDistance = 10.5;
+  else if (def.radius > 1.2) targetCamDistance = 9.5;
+  else targetCamDistance = 5.6;
 }
 
 // UI Event Listeners
@@ -1682,7 +1755,7 @@ function setupUI() {
 
   document.getElementById("btn-reset-cam").addEventListener("click", () => {
     focusIndex = 0;
-    targetCamDistance = 58.0;
+    targetCamDistance = 68.0;
     camYaw = 0.85;
     camPitch = 0.38;
     focusOnBody(0);
