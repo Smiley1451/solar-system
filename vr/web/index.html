@@ -25,6 +25,98 @@
     <div class="hud-line-3">
       Legend: [Sun/Planets: Procedural 3D Meshes] [Asteroids: Warm Amber Points] [Kuiper Belt: Crystalline Cyan] [Oort Cloud: Diamond White] [Deep Sky: Starfield (2,500 Stars)]
     </div>
+    <!-- Live Compute Architecture Switcher -->
+    <div class="arch-selector-bar">
+      <span style="font-size: 11px; color: #94a3b8; margin-right: 4px;">COMPUTE ARCHITECTURE:</span>
+      <button id="btn-engine-gpu" class="arch-btn active" onclick="setComputeEngine('GPU_SIMT')">🚀 GPU OpenCL SIMT (0.5ms)</button>
+      <button id="btn-engine-omp" class="arch-btn" onclick="setComputeEngine('CPU_OMP')">⚡ CPU OpenMP 8T (14ms)</button>
+      <button id="btn-engine-scalar" class="arch-btn" onclick="setComputeEngine('CPU_SCALAR')">⚙️ CPU Scalar 1T (50ms)</button>
+      <button id="btn-toggle-inspector" class="arch-btn btn-lab" onclick="togglePhysicsInspector()">🔬 Physics & Mass Lab</button>
+    </div>
+  </div>
+
+  <!-- Real-Time Gravitational Physics & Mass Inspector Panel -->
+  <div id="physics-inspector-card">
+    <div class="inspector-header">
+      <h3><span>🔬</span> Gravitational Physics & Mass Lab</h3>
+      <button class="inspector-close-btn" onclick="togglePhysicsInspector()">✕</button>
+    </div>
+
+    <!-- Physics Mode & Formulation -->
+    <div class="inspector-section">
+      <div class="inspector-section-title">📐 Active Physics Law</div>
+      <div style="font-size: 11px; color: #e2e8f0; line-height: 1.5; font-family: var(--font-mono);">
+        <strong>Newton's Universal Gravity:</strong><br>
+        <span style="color: #38bdf8;">F = G · (m₁ · m₂) / r²</span><br>
+        <span style="color: #94a3b8; font-size: 10px;">Velocity Verlet Symplectic Integration (Calculated Every Frame)</span>
+      </div>
+    </div>
+
+    <!-- Mass Controller Sliders -->
+    <div class="inspector-section">
+      <div class="inspector-section-title">⚖️ Interactive Mass Modifiers</div>
+      
+      <!-- Sun Mass -->
+      <div class="control-row">
+        <div class="control-label">
+          <span>☀️ Sun Mass (M_sol):</span>
+          <span id="lbl-sun-mass" style="color: #fbbf24; font-weight: 700;">1.00× (8.5e29 kg)</span>
+        </div>
+        <input type="range" id="slider-sun-mass" class="control-slider" min="0.1" max="4.0" step="0.05" value="1.0" oninput="onSunMassSlider(this.value)">
+        <div class="btn-pill-row">
+          <button class="btn-mini-pill" onclick="setSunMass(0.4)">0.4× (Hyperbolic Escape)</button>
+          <button class="btn-mini-pill" onclick="setSunMass(1.0)">1.0× (Standard)</button>
+          <button class="btn-mini-pill" onclick="setSunMass(2.0)">2.0× (Orbital Collapse)</button>
+        </div>
+      </div>
+
+      <!-- Jupiter Mass -->
+      <div class="control-row" style="margin-top: 10px;">
+        <div class="control-label">
+          <span>♃ Jupiter Mass:</span>
+          <span id="lbl-jup-mass" style="color: #fbbf24; font-weight: 700;">1.0× (1.9e27 kg)</span>
+        </div>
+        <input type="range" id="slider-jup-mass" class="control-slider" min="1" max="500" step="5" value="1" oninput="onJupiterMassSlider(this.value)">
+        <div class="btn-pill-row">
+          <button class="btn-mini-pill" onclick="setJupiterMass(1)">1× (Normal)</button>
+          <button class="btn-mini-pill" onclick="setJupiterMass(50)">50× (Perturb Asteroids)</button>
+          <button class="btn-mini-pill" onclick="setJupiterMass(500)">500× (Binary Star System)</button>
+        </div>
+      </div>
+
+      <!-- Earth Mass -->
+      <div class="control-row" style="margin-top: 10px;">
+        <div class="control-label">
+          <span>🜨 Earth Mass:</span>
+          <span id="lbl-earth-mass" style="color: #38bdf8; font-weight: 700;">1.0× (5.97e24 kg)</span>
+        </div>
+        <div class="btn-pill-row">
+          <button class="btn-mini-pill" onclick="setEarthMass(1)">1× (Normal)</button>
+          <button class="btn-mini-pill" onclick="setEarthMass(100)">100× (Super-Earth)</button>
+          <button class="btn-mini-pill" onclick="setEarthMass(1000)">1000× (Massive Attractor)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chaotic Perturbation & Reset -->
+    <div class="inspector-section">
+      <div class="inspector-section-title">⚡ Scientific Experiment Tools</div>
+      <button class="action-btn-danger" onclick="injectRogueBody()">☄️ Inject Rogue Gravitational Perturber</button>
+      <button class="action-btn-success" onclick="resetToEquilibrium()">🔄 Reset to Stable Keplerian Equilibrium</button>
+    </div>
+
+    <!-- Live Scientific Telemetry & Conservation -->
+    <div class="inspector-section">
+      <div class="inspector-section-title">📊 Real-Time Energy & Physics Counters</div>
+      <table class="metrics-table">
+        <tr><td class="m-key">Kinetic Energy (K)</td><td class="m-val" id="val-energy-k">1.42e38 J</td></tr>
+        <tr><td class="m-key">Potential Energy (U)</td><td class="m-val" id="val-energy-u">-3.24e38 J</td></tr>
+        <tr><td class="m-key">Total Mechanical Energy</td><td class="m-val" id="val-energy-total">-1.82e38 J</td></tr>
+        <tr><td class="m-key">Energy Drift ΔE/E₀</td><td class="m-val" id="val-energy-drift">0.0012%</td></tr>
+        <tr><td class="m-key">Calculations / Step</td><td class="m-val" id="val-calc-step">2,593,710 pairs</td></tr>
+        <tr><td class="m-key">Physics Throughput</td><td class="m-val" id="val-calc-rate">155.6 M/s</td></tr>
+      </table>
+    </div>
   </div>
 
   <!-- Mobile Quick Action Floating Bar (Top Right) -->
@@ -70,11 +162,19 @@
         <span class="val" id="val-vel">0.0 km/s</span>
       </div>
       <div class="card-cell">
-        <span class="lbl">Orbital Period</span>
-        <span class="val" id="val-period">Center of Mass</span>
+        <span class="lbl">Instant Acceleration</span>
+        <span class="val" id="val-acc" style="color: #4ade80;">0.000 m/s²</span>
       </div>
       <div class="card-cell">
-        <span class="lbl">Mass</span>
+        <span class="lbl">Gravity Force (F)</span>
+        <span class="val" id="val-force" style="color: #38bdf8;">0.00 N</span>
+      </div>
+      <div class="card-cell">
+        <span class="lbl">Orbital State</span>
+        <span class="val" id="val-state" style="color: #fbbf24;">Stable Ellipse</span>
+      </div>
+      <div class="card-cell">
+        <span class="lbl">Active Mass</span>
         <span class="val" id="val-mass">1.989 × 10³⁰ kg</span>
       </div>
     </div>

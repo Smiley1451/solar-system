@@ -459,6 +459,209 @@ canvas {
   display: none !important;
 }
 
+/* ========================================================
+   PARALLEL ARCHITECTURE SELECTOR & PHYSICS INSPECTOR
+   ======================================================== */
+.arch-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+
+.arch-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #cbd5e1;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.arch-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  color: #ffffff;
+  border-color: var(--hud-accent);
+}
+
+.arch-btn.active {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}
+
+.arch-btn.btn-lab {
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  border-color: #a78bfa;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
+}
+
+/* Physics Inspector Floating Panel */
+#physics-inspector-card {
+  position: absolute;
+  top: 96px;
+  left: 14px;
+  width: 340px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  z-index: 25;
+  background: rgba(10, 16, 30, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--hud-accent);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.25);
+  font-family: var(--font-mono);
+  pointer-events: auto;
+  transition: all 0.25s ease;
+}
+
+#physics-inspector-card.collapsed {
+  display: none;
+}
+
+.inspector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.inspector-header h3 {
+  font-size: 13px;
+  color: #38bdf8;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inspector-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.inspector-close-btn:hover { color: #f87171; }
+
+.inspector-section {
+  margin-bottom: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.inspector-section-title {
+  font-size: 11px;
+  color: var(--hud-gold);
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.control-row {
+  margin-bottom: 10px;
+}
+
+.control-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #cbd5e1;
+  margin-bottom: 4px;
+}
+
+.control-slider {
+  width: 100%;
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+
+.btn-pill-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.btn-mini-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn-mini-pill:hover {
+  background: rgba(56, 189, 248, 0.25);
+  color: #fff;
+  border-color: #38bdf8;
+}
+
+.action-btn-danger {
+  width: 100%;
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  border: 1px solid #ef4444;
+  color: #fff;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 6px;
+  transition: all 0.2s;
+}
+.action-btn-danger:hover {
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
+}
+
+.action-btn-success {
+  width: 100%;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  border: 1px solid #10b981;
+  color: #fff;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.action-btn-success:hover {
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+  transform: translateY(-1px);
+}
+
+.metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.metrics-table td {
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.metrics-table .m-key { color: #94a3b8; }
+.metrics-table .m-val { color: #38bdf8; font-weight: 700; text-align: right; }
+
 /* In Stereoscopic VR Cardboard Mode */
 body.in-vr #desktop-hud-top,
 body.in-vr #desktop-hud-bottom,
