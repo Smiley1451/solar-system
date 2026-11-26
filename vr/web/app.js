@@ -244,22 +244,42 @@ const PLANET_FRAGMENT_SHADER = `
       albedo = mix(vec3(0.88, 0.76, 0.50), vec3(0.96, 0.88, 0.68), clouds * 0.5 + 0.5);
       atmosphereColor = vec3(0.95, 0.85, 0.60) * fresnel * 0.8;
     } else if (planetId == 3) {
-      // Earth: Deep blue oceans, continents, polar ice caps, swirling clouds
-      float continentNoise = fbm(vUV * 8.0);
-      float isLand = smoothstep(0.05, 0.15, continentNoise);
-      vec3 oceanColor = vec3(0.08, 0.28, 0.68);
-      vec3 landColor = mix(vec3(0.22, 0.52, 0.22), vec3(0.55, 0.48, 0.32), fbm(vUV * 16.0) * 0.5 + 0.5);
+      // Earth: High-detail oceans, coastal shelves, continents, deserts, polar ice, night city lights, moving clouds
+      float continentNoise = fbm(vUV * 7.5 + vec2(0.3, 0.7));
+      float detailNoise = fbm(vUV * 24.0);
+      float isLand = smoothstep(0.02, 0.10, continentNoise + detailNoise * 0.15);
+      float coast = smoothstep(-0.06, 0.03, continentNoise) * (1.0 - isLand);
+
+      vec3 deepOcean = vec3(0.03, 0.16, 0.48);
+      vec3 shallowOcean = vec3(0.06, 0.46, 0.68);
+      vec3 oceanColor = mix(deepOcean, shallowOcean, coast);
+
+      float aridity = fbm(vUV * 11.0 + vec2(4.2, 1.8)) * 0.5 + 0.5;
+      vec3 forestColor = vec3(0.10, 0.42, 0.15);
+      vec3 desertColor = vec3(0.68, 0.58, 0.36);
+      vec3 mountainColor = vec3(0.45, 0.43, 0.40);
+      vec3 landColor = mix(forestColor, desertColor, smoothstep(0.42, 0.68, aridity));
+      landColor = mix(landColor, mountainColor, smoothstep(0.28, 0.55, continentNoise));
+
       albedo = mix(oceanColor, landColor, isLand);
 
-      if (abs(N.y) > 0.82) {
-        albedo = vec3(0.95, 0.98, 1.0);
-        isLand = 1.0;
-      }
-      float cloudPattern = fbm(vUV * 12.0 + vec2(time * 0.015, 0.0));
-      float clouds = smoothstep(0.18, 0.45, cloudPattern);
-      albedo = mix(albedo, vec3(0.98, 0.98, 1.0), clouds * 0.85);
-      specularStrength = (1.0 - isLand) * (1.0 - clouds) * 0.75;
-      atmosphereColor = vec3(0.25, 0.60, 1.0) * fresnel * 1.1;
+      // Polar ice caps
+      float lat = abs(vUV.y - 0.5) * 2.0;
+      float iceMask = smoothstep(0.76, 0.88, lat + detailNoise * 0.08);
+      albedo = mix(albedo, vec3(0.95, 0.98, 1.0), iceMask);
+
+      // Swirling cloud layer
+      float cloudPattern = fbm(vUV * 11.0 + vec2(time * 0.035, sin(vUV.y * 6.0) * 0.15));
+      float clouds = smoothstep(0.14, 0.44, cloudPattern);
+      albedo = mix(albedo, vec3(0.99, 0.99, 1.0), clouds * 0.82);
+
+      // Night-side city lights on landmasses facing away from Sun
+      float nightMask = smoothstep(0.12, -0.05, NdotL) * isLand * (1.0 - iceMask) * (1.0 - clouds * 0.7);
+      float cityNoise = smoothstep(0.74, 0.92, noise(vUV * 65.0));
+      atmosphereColor += vec3(1.0, 0.78, 0.35) * nightMask * cityNoise * 1.1;
+
+      specularStrength = (1.0 - isLand) * (1.0 - clouds) * 0.85;
+      atmosphereColor += vec3(0.28, 0.68, 1.0) * fresnel * (0.45 + 0.85 * NdotL);
     } else if (planetId == 4) {
       // Mars: Rusty iron-red with dark basalt and polar ice
       float terrain = fbm(vUV * 12.0);
@@ -624,6 +644,9 @@ function createPlanetarySystem() {
     scene.add(trailLine);
 
     mesh.position.set(posX[index], posY[index], posZ[index]);
+    if (index === 3) {
+      mesh.rotation.z = 0.409; // Earth's real 23.4° axial tilt
+    }
     scene.add(mesh);
 
     const bodyObj = {
@@ -670,7 +693,7 @@ function createMoons() {
     });
     const mesh = new THREE.Mesh(geo, mat);
 
-    // Subtle moon orbital ring centered on parent planet
+    // Subtle moon reference orbital ring centered on parent planet
     const curve = new THREE.EllipseCurve(0, 0, mDef.dist, mDef.dist, 0, 2 * Math.PI, false, 0);
     const pts = curve.getPoints(64).map(p => new THREE.Vector3(p.x, Math.sin(Math.atan2(p.y, p.x)) * mDef.dist * mDef.inclination, p.y));
     const orbitGeo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -678,12 +701,33 @@ function createMoons() {
     const orbitLine = new THREE.Line(orbitGeo, orbitMat);
     scene.add(orbitLine);
 
+    // Real physical Keplerian relative state vectors for N-body moon simulation
+    const angle0 = idx * 1.15;
+    const omega = mDef.speed * 0.65;
+    const vOrb = Math.abs(omega) * mDef.dist;
+    const sign = omega >= 0 ? 1 : -1;
+
+    const rx = mDef.dist * Math.cos(angle0);
+    const ry = Math.sin(angle0) * mDef.dist * mDef.inclination;
+    const rz = mDef.dist * Math.sin(angle0);
+
+    const vx = -vOrb * Math.sin(angle0) * sign;
+    const vy = Math.cos(angle0) * vOrb * mDef.inclination * sign;
+    const vz = vOrb * Math.cos(angle0) * sign;
+
+    // G_local calibrated so centripetal v^2 / r = G_local / r^2 at 1x parent mass
+    const gLocal = vOrb * vOrb * mDef.dist;
+
     scene.add(mesh);
     moons.push({
       def: mDef,
       mesh: mesh,
       orbitLine: orbitLine,
-      angle: idx * 1.15
+      rx, ry, rz,
+      vx, vy, vz,
+      initRx: rx, initRy: ry, initRz: rz,
+      initVx: vx, initVy: vy, initVz: vz,
+      gLocal: gLocal
     });
   });
 }
@@ -991,7 +1035,9 @@ function updatePhysics(dt, elapsedTime) {
     }
 
     body.mesh.position.set(posX[idx], posY[idx], posZ[idx]);
-    body.mesh.rotation.y += 0.015 * effectiveDt;
+    // Realistic visible self-rotation (Earth ~1.2 rad/s, Jupiter ~2.2 rad/s, etc.)
+    const selfSpin = idx === 3 ? 1.2 : (idx === 5 ? 2.2 : (idx === 6 ? 1.9 : (idx === 2 ? -0.35 : 0.65)));
+    body.mesh.rotation.y += selfSpin * effectiveDt;
 
     // Motion Trail updated from actual integrated trajectory
     if (idx > 0) {
@@ -1008,14 +1054,56 @@ function updatePhysics(dt, elapsedTime) {
     }
   });
 
-  // 1b. Update Moons (Sub-Planets) orbiting their parent planet's real-time position
+  // 1b. Real Gravitational + Tidal N-Body Physics for Moons (Sub-Planets)
+  const moonSubsteps = Math.max(2, substeps);
+  const mDt = effectiveDt / moonSubsteps;
+  const G_FACTOR = G_SIM / 1000.0;
+  const externalSources = hasRogueBody ? [0, 5, 6, 10] : [0, 5, 6];
+
   moons.forEach((m) => {
     const p = m.def.parentId;
-    m.angle += m.def.speed * effectiveDt * 0.65;
-    const mx = posX[p] + m.def.dist * Math.cos(m.angle);
-    const my = posY[p] + Math.sin(m.angle) * m.def.dist * m.def.inclination;
-    const mz = posZ[p] + m.def.dist * Math.sin(m.angle);
-    m.mesh.position.set(mx, my, mz);
+    const parentMassRatio = masses[p] / (initialMasses[p] || 1.0);
+
+    for (let s = 0; s < moonSubsteps; s++) {
+      // 1) Parent planet gravitational pull (scales directly with Planet Mass Meter!)
+      const rSq = m.rx * m.rx + m.ry * m.ry + m.rz * m.rz + 0.04;
+      const invR = 1.0 / Math.sqrt(rSq);
+      const fParent = (m.gLocal * parentMassRatio) / (rSq * Math.sqrt(rSq));
+      let ax = -m.rx * fParent;
+      let ay = -m.ry * fParent;
+      let az = -m.rz * fParent;
+
+      // 2) Tidal gravitational perturbation from Sun, massive planets & Rogue Star
+      const wx = posX[p] + m.rx;
+      const wy = posY[p] + m.ry;
+      const wz = posZ[p] + m.rz;
+      for (let kIdx = 0; kIdx < externalSources.length; kIdx++) {
+        const k = externalSources[kIdx];
+        if (k === p) continue;
+        // Gravity at moon
+        const dxM = posX[k] - wx, dyM = posY[k] - wy, dzM = posZ[k] - wz;
+        const dSqM = dxM * dxM + dyM * dyM + dzM * dzM + SOFTENING_EPS_SQ;
+        const fM = (G_FACTOR * masses[k]) / (dSqM * Math.sqrt(dSqM));
+        // Gravity at parent
+        const dxP = posX[k] - posX[p], dyP = posY[k] - posY[p], dzP = posZ[k] - posZ[p];
+        const dSqP = dxP * dxP + dyP * dyP + dzP * dzP + SOFTENING_EPS_SQ;
+        const fP = (G_FACTOR * masses[k]) / (dSqP * Math.sqrt(dSqP));
+        // Tidal differential acceleration
+        ax += dxM * fM - dxP * fP;
+        ay += dyM * fM - dyP * fP;
+        az += dzM * fM - dzP * fP;
+      }
+
+      m.vx += ax * mDt;
+      m.vy += ay * mDt;
+      m.vz += az * mDt;
+
+      m.rx += m.vx * mDt;
+      m.ry += m.vy * mDt;
+      m.rz += m.vz * mDt;
+    }
+
+    m.mesh.position.set(posX[p] + m.rx, posY[p] + m.ry, posZ[p] + m.rz);
     m.orbitLine.position.set(posX[p], posY[p], posZ[p]);
   });
 
@@ -1260,12 +1348,65 @@ function onSunMassSlider(val) {
   setSunMass(parseFloat(val));
 }
 
-// Logarithmic slider helpers: 0..100 <-> 0.1x..1000x
-function sliderToMultiplier(s) {
-  return Math.pow(10, (s / 25.0) - 1.0);
+// Dynamic logarithmic slider helpers: scales up to Star-Scale (~500,000x for Earth/small planets!)
+function getMaxMultForPlanet(pid) {
+  const def = PLANET_DATA[pid];
+  if (!def) return 1000;
+  if (def.simMass < 0.01) return 500000; // Mercury, Venus, Earth, Mars, Pluto -> up to 500,000x
+  if (def.simMass < 0.2) return 25000;   // Uranus, Neptune -> up to 25,000x
+  return 1000;                           // Jupiter, Saturn -> up to 1,000x
 }
-function multiplierToSlider(m) {
-  return Math.max(0, Math.min(100, (Math.log10(Math.max(0.1, m)) + 1.0) * 25.0));
+
+function sliderToMultiplier(s, pid = 5) {
+  const minExp = -1.0; // 0.1x
+  const maxExp = Math.log10(getMaxMultForPlanet(pid));
+  return Math.pow(10, minExp + (s / 100.0) * (maxExp - minExp));
+}
+
+function multiplierToSlider(m, pid = 5) {
+  const minExp = -1.0;
+  const maxExp = Math.log10(getMaxMultForPlanet(pid));
+  return Math.max(0, Math.min(100, ((Math.log10(Math.max(0.1, m)) - minExp) / (maxExp - minExp)) * 100.0));
+}
+
+function formatMult(mult) {
+  if (mult >= 10000) return `${(mult / 1000).toFixed(0)}k×`;
+  if (mult >= 1000) return `${(mult / 1000).toFixed(1)}k×`;
+  if (mult >= 10) return `${mult.toFixed(0)}×`;
+  return `${mult.toFixed(2)}×`;
+}
+
+function updatePlanetMassPresets(pid) {
+  const row = document.getElementById("planet-mass-presets");
+  if (!row) return;
+  const maxM = getMaxMultForPlanet(pid);
+  let presets;
+  if (maxM >= 500000) {
+    presets = [
+      { m: 0.1, lbl: "0.1×" },
+      { m: 1, lbl: "1× (Normal)" },
+      { m: 1000, lbl: "1k×" },
+      { m: 50000, lbl: "50k×" },
+      { m: 300000, lbl: "300k× (Star!)" }
+    ];
+  } else if (maxM >= 25000) {
+    presets = [
+      { m: 0.1, lbl: "0.1×" },
+      { m: 1, lbl: "1× (Normal)" },
+      { m: 100, lbl: "100×" },
+      { m: 2500, lbl: "2.5k×" },
+      { m: 15000, lbl: "15k× (Star!)" }
+    ];
+  } else {
+    presets = [
+      { m: 0.1, lbl: "0.1×" },
+      { m: 1, lbl: "1× (Normal)" },
+      { m: 50, lbl: "50×" },
+      { m: 500, lbl: "500×" },
+      { m: 1000, lbl: "1,000×" }
+    ];
+  }
+  row.innerHTML = presets.map(p => `<button class="btn-mini-pill" onclick="setSelectedPlanetMass(${p.m})">${p.lbl}</button>`).join("");
 }
 
 function updatePlanetMassMeterUI(planetId) {
@@ -1277,19 +1418,21 @@ function updatePlanetMassMeterUI(planetId) {
   const meter = document.getElementById("meter-planet-mass");
   const lbl = document.getElementById("lbl-planet-mass");
 
-  const sVal = multiplierToSlider(mult);
+  const sVal = multiplierToSlider(mult, planetId);
   if (slider) slider.value = Math.round(sVal);
   if (meter) {
     meter.style.width = `${sVal.toFixed(1)}%`;
-    meter.style.backgroundColor = mult >= 50 ? "#f59e0b" : (mult < 0.5 ? "#94a3b8" : "#38bdf8");
+    const effectiveSimMass = def.simMass * mult;
+    meter.style.backgroundColor = effectiveSimMass >= 15 ? "#f59e0b" : (mult < 0.5 ? "#94a3b8" : "#38bdf8");
   }
   const activeKg = (def.realMassKg * mult).toExponential(2);
-  if (lbl) lbl.innerText = `${mult >= 10 ? mult.toFixed(0) : mult.toFixed(2)}× (${activeKg} kg)`;
+  if (lbl) lbl.innerText = `${formatMult(mult)} (${activeKg} kg)`;
 
   if (focusIndex === planetId) {
     const valMass = document.getElementById("val-mass");
-    if (valMass) valMass.innerText = `${activeKg} kg (${mult >= 10 ? mult.toFixed(0) : mult.toFixed(2)}×)`;
+    if (valMass) valMass.innerText = `${activeKg} kg (${formatMult(mult)})`;
   }
+  updatePlanetMassPresets(planetId);
 }
 
 function setPlanetMass(planetId, mult) {
@@ -1300,18 +1443,19 @@ function setPlanetMass(planetId, mult) {
   if (planetId === 3) earthMassMultiplier = mult;
 
   const sel = document.getElementById("select-planet-mass");
-  if (sel && parseInt(sel.value) === planetId) {
-    updatePlanetMassMeterUI(planetId);
-  } else if (sel) {
+  if (sel && parseInt(sel.value) !== planetId) {
     sel.value = String(planetId);
-    updatePlanetMassMeterUI(planetId);
   }
+  updatePlanetMassMeterUI(planetId);
 
   const name = PLANET_DATA[planetId].name;
-  if (mult >= 50) {
-    showToast(`🪐 ${name} Mass scaled to ${mult.toFixed(0)}×! Strong gravitational perturbations active on surrounding orbits!`);
+  const effMass = initialMasses[planetId] * mult;
+  if (effMass >= 20) {
+    showToast(`🪐 ${name} Mass scaled to ${formatMult(mult)}! Massive gravitational perturbations active on orbits & moons!`);
+  } else if (mult < 0.5) {
+    showToast(`🪐 ${name} Mass reduced to ${formatMult(mult)}! Check its Moon's orbit — weaker gravity lets moons escape!`);
   } else {
-    showToast(`${name} Mass set to ${mult >= 10 ? mult.toFixed(0) : mult.toFixed(2)}×.`);
+    showToast(`${name} Mass set to ${formatMult(mult)}.`);
   }
 }
 
@@ -1325,7 +1469,7 @@ function onPlanetMassSelectChange() {
 function onPlanetMassMeterSlider(sliderVal) {
   const sel = document.getElementById("select-planet-mass");
   const pid = sel ? parseInt(sel.value) : 5;
-  const mult = sliderToMultiplier(parseFloat(sliderVal));
+  const mult = sliderToMultiplier(parseFloat(sliderVal), pid);
   setPlanetMass(pid, mult);
 }
 
@@ -1421,9 +1565,13 @@ function resetToEquilibrium() {
   const sel = document.getElementById("select-planet-mass");
   updatePlanetMassMeterUI(sel ? parseInt(sel.value) : 5);
 
-  // Reset trails
+  // Reset trails & moons
   majorBodies.forEach((body) => {
     body.trailHistory = [new THREE.Vector3(posX[body.id], posY[body.id], posZ[body.id])];
+  });
+  moons.forEach((m) => {
+    m.rx = m.initRx; m.ry = m.initRy; m.rz = m.initRz;
+    m.vx = m.initVx; m.vy = m.initVy; m.vz = m.initVz;
   });
 
   initialTotalEnergy = 0;
