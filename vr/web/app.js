@@ -1686,7 +1686,120 @@ function animate(now) {
   } else {
     renderer.render(scene, camera);
   }
+
+  // Stream live physics telemetry to Central Dashboard (~every 400ms)
+  if (!window._lastTelemetryEmit || now - window._lastTelemetryEmit >= 400) {
+    window._lastTelemetryEmit = now;
+    emitTelemetryToDashboard();
+  }
 }
+
+// ========================================================
+// 10. CENTRAL DASHBOARD TWO-WAY SYNC BRIDGE (postMessage)
+// ========================================================
+function emitTelemetryToDashboard(eventMsg = null) {
+  const hasParent = window.parent && window.parent !== window;
+  const hasOpener = window.opener && !window.opener.closed;
+  if (!hasParent && !hasOpener) return;
+
+  // Compute focused body summary
+  const f = (focusIndex >= 0 && focusIndex < 10) ? focusIndex : 3; // Default Earth if belt selected
+  const speed = Math.sqrt(velX[f] * velX[f] + velY[f] * velY[f] + velZ[f] * velZ[f]);
+  const dist = Math.sqrt(posX[f] * posX[f] + posY[f] * posY[f] + posZ[f] * posZ[f]);
+  const speedKms = f === 0 ? 0 : (speed / 0.88) * 29.78;
+  const specificEnergy = 0.5 * speed * speed - (G_SIM * (masses[0] / 1000.0)) / (dist || 1);
+  const orbitalState = f === 0 ? "Barycenter" : (specificEnergy < 0 ? "Bound" : "Escape!");
+
+  const payload = {
+    type: "SOLAR_PHYSICS_TELEMETRY",
+    engine: currentEngine,
+    ompThreads: ompThreads,
+    simSpeed: simSpeed,
+    substeps: currentSubsteps,
+    calcMs: reportedCalcMs,
+    fps: currentFps,
+    isPaused: isPaused,
+    interactionsPerStep: 2593710 * currentSubsteps,
+    throughputMps: 2.59371 * currentSubsteps * currentFps,
+    sunMassMult: sunMassMultiplier,
+    jupMassMult: jupiterMassMultiplier,
+    earthMassMult: earthMassMultiplier,
+    hasRogueBody: hasRogueBody,
+    focusedName: PLANET_DATA[f] ? PLANET_DATA[f].name : "EARTH",
+    focusedDistAU: dist / AU,
+    focusedSpeedKms: speedKms,
+    focusedState: orbitalState,
+    totalEnergyText: document.getElementById("val-energy-total")?.innerText || "-1.82e+38 J",
+    driftText: document.getElementById("val-energy-drift")?.innerText || "0.0000%",
+    eventMsg: eventMsg
+  };
+
+  if (hasParent) {
+    try { window.parent.postMessage(payload, "*"); } catch (e) {}
+  }
+  if (hasOpener) {
+    try { window.opener.postMessage(payload, "*"); } catch (e) {}
+  }
+}
+
+window.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (!msg || msg.type !== "SOLAR_CONTROL_CMD") return;
+
+  switch (msg.action) {
+    case "setEngine":
+      setComputeEngine(msg.value);
+      emitTelemetryToDashboard(`Architecture -> ${msg.value}`);
+      break;
+    case "setOmpThreads":
+      setOmpThreads(parseInt(msg.value) || 8);
+      emitTelemetryToDashboard(`OpenMP Threads -> ${ompThreads}T`);
+      break;
+    case "speedUp":
+      document.getElementById("btn-speed-up")?.click();
+      emitTelemetryToDashboard(`Speedup -> ${simSpeed}x (${Math.round(simSpeed >= 1 ? simSpeed : 1)} substeps/frame)`);
+      break;
+    case "speedDown":
+      document.getElementById("btn-speed-down")?.click();
+      emitTelemetryToDashboard(`Speedup -> ${simSpeed}x`);
+      break;
+    case "setSpeed":
+      simSpeed = parseFloat(msg.value) || 1.0;
+      const sd = document.getElementById("speed-display");
+      if (sd) sd.innerText = `${simSpeed.toFixed(simSpeed < 1 ? 2 : 1)}x`;
+      updateHUDStats();
+      emitTelemetryToDashboard(`Speedup -> ${simSpeed}x`);
+      break;
+    case "togglePause":
+      document.getElementById("btn-pause")?.click();
+      emitTelemetryToDashboard(isPaused ? "Simulation PAUSED" : "Simulation RESUMED");
+      break;
+    case "setSunMass":
+      setSunMass(parseFloat(msg.value));
+      emitTelemetryToDashboard(`Sun Mass -> ${parseFloat(msg.value).toFixed(2)}x`);
+      break;
+    case "setJupiterMass":
+      setJupiterMass(parseFloat(msg.value));
+      emitTelemetryToDashboard(`Jupiter Mass -> ${parseFloat(msg.value)}x`);
+      break;
+    case "setEarthMass":
+      setEarthMass(parseFloat(msg.value));
+      emitTelemetryToDashboard(`Earth Mass -> ${parseFloat(msg.value)}x`);
+      break;
+    case "injectRogue":
+      injectRogueBody();
+      emitTelemetryToDashboard("Injected Rogue Star (M = 0.75 M_sun)!");
+      break;
+    case "reset":
+      resetToEquilibrium();
+      emitTelemetryToDashboard("Reset to Keplerian Equilibrium");
+      break;
+    case "focusBody":
+      focusOnBody(parseInt(msg.value) || 0);
+      emitTelemetryToDashboard(`Camera Focus -> Body #${msg.value}`);
+      break;
+  }
+});
 
 // Auto-start on load
 window.addEventListener("DOMContentLoaded", init);

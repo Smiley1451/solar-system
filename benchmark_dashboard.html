@@ -304,6 +304,113 @@
       box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 24px rgba(56, 189, 248, 0.6);
     }
 
+    /* Central 3D Simulation Remote Control & Live Telemetry */
+    .central-sim-panel {
+      background: rgba(10, 16, 30, 0.78);
+      border: 1px solid rgba(167, 139, 250, 0.4);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+    .central-sim-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .central-sim-header h3 {
+      font-size: 14px;
+      color: #c4b5fd;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .live-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: rgba(3, 7, 18, 0.75);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 8px;
+      font-family: var(--font-mono);
+    }
+    .live-cell .l-lbl {
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+    }
+    .live-cell .l-val {
+      font-size: 13px;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-top: 2px;
+    }
+    .sim-ctrl-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 6px 10px;
+      border-radius: 8px;
+    }
+    .ctrl-group-lbl {
+      font-size: 10px;
+      color: #94a3b8;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      margin-right: 4px;
+    }
+    .ctrl-chip {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #e2e8f0;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .ctrl-chip:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+    }
+    .ctrl-chip.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #fff;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+    }
+    .ctrl-chip.warn { border-color: rgba(245, 158, 11, 0.45); color: #fcd34d; }
+    .ctrl-chip.danger { border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
+    .ctrl-chip.success { border-color: rgba(16, 185, 129, 0.5); color: #6ee7b7; }
+
+    .terminal-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: #94a3b8;
+    }
+
     /* Interactive Execution Control Center */
     .control-center {
       background: var(--card-bg);
@@ -756,8 +863,98 @@
         </div>
       </div>
 
+      <!-- Central 3D Simulation Remote Control & Live Telemetry -->
+      <div class="central-sim-panel">
+        <div class="central-sim-header">
+          <h3><span>🎛️</span> Central 3D Simulation Controller (Synced with Port 8080)</h3>
+          <span id="sim-link-status" style="font-size: 11px; font-family: var(--font-mono); color: #94a3b8;">
+            ● Waiting for 3D Graphics Window (click Launch or any control below)
+          </span>
+        </div>
+
+        <!-- Live Real-Time Telemetry Strip -->
+        <div class="live-strip">
+          <div class="live-cell">
+            <div class="l-lbl">Active Engine</div>
+            <div class="l-val" id="live-sim-engine">GPU_SIMT</div>
+          </div>
+          <div class="live-cell">
+            <div class="l-lbl">Calc Latency / 16.7ms</div>
+            <div class="l-val" id="live-sim-calc">0.56 ms (🟢 OK)</div>
+          </div>
+          <div class="live-cell">
+            <div class="l-lbl">Render FPS</div>
+            <div class="l-val" id="live-sim-fps">60 FPS</div>
+          </div>
+          <div class="live-cell">
+            <div class="l-lbl">Speedup / Substeps</div>
+            <div class="l-val" id="live-sim-speed">1.0x (1 step/f)</div>
+          </div>
+          <div class="live-cell">
+            <div class="l-lbl">Pair Throughput</div>
+            <div class="l-val" id="live-sim-tput">155.6 M/s</div>
+          </div>
+          <div class="live-cell">
+            <div class="l-lbl">Focused Body Physics</div>
+            <div class="l-val" id="live-sim-body">EARTH: 1.00 AU | 29.8 km/s</div>
+          </div>
+        </div>
+
+        <!-- Remote Control Buttons -->
+        <div class="sim-ctrl-grid">
+          <div class="ctrl-group">
+            <span class="ctrl-group-lbl">Architecture:</span>
+            <button class="ctrl-chip active" id="rc-eng-gpu" onclick="sendSimCmd('setEngine', 'GPU_SIMT')">🚀 GPU OpenCL</button>
+            <button class="ctrl-chip" id="rc-eng-omp" onclick="sendSimCmd('setEngine', 'CPU_OMP')">⚡ CPU OpenMP</button>
+            <button class="ctrl-chip" id="rc-eng-scalar" onclick="sendSimCmd('setEngine', 'CPU_SCALAR')">⚙️ CPU Scalar</button>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-group-lbl">OMP Threads:</span>
+            <button class="ctrl-chip" id="rc-t-1" onclick="sendSimCmd('setOmpThreads', 1)">1T</button>
+            <button class="ctrl-chip" id="rc-t-2" onclick="sendSimCmd('setOmpThreads', 2)">2T</button>
+            <button class="ctrl-chip" id="rc-t-4" onclick="sendSimCmd('setOmpThreads', 4)">4T</button>
+            <button class="ctrl-chip active" id="rc-t-8" onclick="sendSimCmd('setOmpThreads', 8)">8T</button>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-group-lbl">Speedup / Load:</span>
+            <button class="ctrl-chip" onclick="sendSimCmd('speedDown')">⏪ Slower</button>
+            <button class="ctrl-chip" onclick="sendSimCmd('setSpeed', 1)">1x</button>
+            <button class="ctrl-chip" onclick="sendSimCmd('setSpeed', 4)">4x</button>
+            <button class="ctrl-chip" onclick="sendSimCmd('setSpeed', 16)">16x</button>
+            <button class="ctrl-chip warn" onclick="sendSimCmd('setSpeed', 32)">32x (Stress)</button>
+            <button class="ctrl-chip" onclick="sendSimCmd('speedUp')">⏩ Faster</button>
+            <button class="ctrl-chip" onclick="sendSimCmd('togglePause')">⏯️ Pause</button>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-group-lbl">Mass & Physics Lab:</span>
+            <button class="ctrl-chip warn" onclick="sendSimCmd('setSunMass', 0.4)">☀️ Sun 0.4×</button>
+            <button class="ctrl-chip" onclick="sendSimCmd('setSunMass', 1.0)">☀️ Sun 1.0×</button>
+            <button class="ctrl-chip warn" onclick="sendSimCmd('setSunMass', 2.0)">☀️ Sun 2.0×</button>
+            <button class="ctrl-chip warn" onclick="sendSimCmd('setJupiterMass', 500)">♃ Jupiter 500×</button>
+            <button class="ctrl-chip danger" onclick="sendSimCmd('injectRogue')">☄️ Rogue Star</button>
+            <button class="ctrl-chip success" onclick="sendSimCmd('reset')">🔄 Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Terminal Console Header -->
+      <div class="terminal-header-bar">
+        <span>📟 <strong>Central System Terminal</strong> (C++ Benchmarks + Real-Time N-Body Physics Stream)</span>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: #38bdf8;">
+            <input type="checkbox" id="chk-stream-telemetry" checked style="accent-color: #38bdf8;">
+            <span>📡 Stream Live Physics Calculations</span>
+          </label>
+          <button class="ctrl-chip" onclick="clearTerminal()">🗑️ Clear</button>
+        </div>
+      </div>
+
       <!-- Live Terminal Console -->
-      <div class="terminal-container" id="terminal-output">[*] Benchmark Server Idle. Click "Run Full Automated Benchmark Suite" or choose a custom configuration to profile live on your hardware...</div>
+      <div class="terminal-container" id="terminal-output">[*] Central Control System Ready.
+[*] Launch the 3D Graphics Window or click any Architecture / Mass control above to stream live calculations here, or click "Run Full Automated Benchmark Suite" for C++ hardware profiling...</div>
     </div>
 
     <!-- Hardware Telemetry Bar -->
@@ -1316,6 +1513,106 @@
     }
 
     // ==========================================================
+    // CENTRAL CONTROL SYSTEM: TWO-WAY SYNC & LIVE TERMINAL STREAM
+    // ==========================================================
+    let isBenchmarkingActive = false;
+    let terminalLines = [
+      "[*] Central Control System Ready.",
+      "[*] Launch the 3D Graphics Window or click any Architecture / Mass control above to stream live calculations here."
+    ];
+
+    function clearTerminal() {
+      terminalLines = ["[*] Terminal cleared. Waiting for telemetry or benchmark output..."];
+      const term = document.getElementById("terminal-output");
+      if (term) term.innerText = terminalLines.join("\n");
+    }
+
+    function appendTerminalLog(line) {
+      if (isBenchmarkingActive) return;
+      const term = document.getElementById("terminal-output");
+      if (!term) return;
+      terminalLines.push(line);
+      if (terminalLines.length > 80) {
+        terminalLines = terminalLines.slice(terminalLines.length - 80);
+      }
+      term.innerText = terminalLines.join("\n");
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function sendSimCmd(action, value = null) {
+      // Ensure 3D graphics iframe is active so central controls always have a live target
+      const iframe = document.getElementById("graphics-iframe");
+      const win = document.getElementById("floating-graphics-window");
+      const pill = document.getElementById("floating-graphics-pill");
+      if (iframe && (!iframe.src || iframe.src === "about:blank")) {
+        showFloatingGraphics();
+      } else if (win && win.style.display === "none" && pill && pill.style.display === "none") {
+        showFloatingGraphics();
+      }
+
+      const cmd = { type: "SOLAR_CONTROL_CMD", action, value };
+      if (iframe && iframe.contentWindow) {
+        try { iframe.contentWindow.postMessage(cmd, "*"); } catch (e) {}
+      }
+      if (graphicsPopupHandle && !graphicsPopupHandle.closed) {
+        try { graphicsPopupHandle.postMessage(cmd, "*"); } catch (e) {}
+      }
+    }
+
+    window.addEventListener("message", (event) => {
+      const msg = event.data;
+      if (!msg || msg.type !== "SOLAR_PHYSICS_TELEMETRY") return;
+
+      // Update link indicator
+      const linkEl = document.getElementById("sim-link-status");
+      if (linkEl) {
+        linkEl.innerHTML = `<span style="color:#4ade80;">● LIVE SYNC ACTIVE (Port 8080)</span>`;
+      }
+
+      // Update Live Telemetry Strip
+      const engName = msg.engine === "CPU_OMP" ? `CPU_OMP (${msg.ompThreads}T)` : msg.engine;
+      const elEng = document.getElementById("live-sim-engine");
+      const elCalc = document.getElementById("live-sim-calc");
+      const elFps = document.getElementById("live-sim-fps");
+      const elSpeed = document.getElementById("live-sim-speed");
+      const elTput = document.getElementById("live-sim-tput");
+      const elBody = document.getElementById("live-sim-body");
+
+      if (elEng) elEng.innerText = engName;
+      if (elCalc) {
+        const badge = msg.calcMs <= 16.67 ? "🟢 OK" : (msg.calcMs <= 33.33 ? "🟡 THROTTLED" : "🔴 LAG!");
+        elCalc.innerText = `${msg.calcMs.toFixed(2)} ms (${badge})`;
+        elCalc.style.color = msg.calcMs <= 16.67 ? "#4ade80" : (msg.calcMs <= 33.33 ? "#fbbf24" : "#f87171");
+      }
+      if (elFps) elFps.innerText = `${msg.fps} FPS`;
+      if (elSpeed) elSpeed.innerText = `${msg.simSpeed.toFixed(msg.simSpeed < 1 ? 2 : 1)}x (${msg.substeps} step/f)`;
+      if (elTput) elTput.innerText = `${msg.throughputMps.toFixed(1)} M/s`;
+      if (elBody) elBody.innerText = `${msg.focusedName}: ${msg.focusedDistAU.toFixed(2)} AU | ${msg.focusedSpeedKms.toFixed(1)} km/s (${msg.focusedState})`;
+
+      // Sync active button highlights
+      document.getElementById("rc-eng-gpu")?.classList.toggle("active", msg.engine === "GPU_SIMT");
+      document.getElementById("rc-eng-omp")?.classList.toggle("active", msg.engine === "CPU_OMP");
+      document.getElementById("rc-eng-scalar")?.classList.toggle("active", msg.engine === "CPU_SCALAR");
+      [1, 2, 4, 8].forEach((t) => {
+        document.getElementById(`rc-t-${t}`)?.classList.toggle("active", msg.ompThreads === t);
+      });
+
+      // Stream calculation into Central Terminal
+      const streamEnabled = document.getElementById("chk-stream-telemetry")?.checked ?? true;
+      if (streamEnabled && !isBenchmarkingActive) {
+        const ts = new Date().toLocaleTimeString();
+        if (msg.eventMsg) {
+          appendTerminalLog(`[${ts}] >>> CONTROL COMMAND: ${msg.eventMsg}`);
+        } else {
+          const statusTag = msg.calcMs <= 16.67 ? "OK" : (msg.calcMs <= 33.33 ? "THROTTLED" : "LAG");
+          appendTerminalLog(
+            `[${ts}] [${engName} | ${msg.simSpeed}x (${msg.substeps} step/f)] Calc: ${msg.calcMs.toFixed(2)}ms (${statusTag}) | FPS: ${msg.fps} | ${msg.throughputMps.toFixed(1)} M/s | E_tot: ${msg.totalEnergyText} | ${msg.focusedName}: ${msg.focusedSpeedKms.toFixed(2)} km/s (${msg.focusedState})`
+          );
+        }
+      }
+    });
+
+    // ==========================================================
     // LIVE REST API EXECUTION TRIGGER
     // ==========================================================
     async function triggerBenchmark(device) {
@@ -1347,6 +1644,8 @@
       const btnAll = document.getElementById("btn-run-all");
       const btnCustom = document.getElementById("btn-run-custom");
 
+      isBenchmarkingActive = true;
+
       // Auto-open 3D graphics pop-up window while running if enabled
       const autoGraphics = document.getElementById("chk-auto-graphics")?.checked ?? true;
       if (autoGraphics) {
@@ -1373,6 +1672,7 @@
         const data = await resp.json();
         term.innerText = data.stdout || "Benchmark finished successfully!";
         if (data.stderr) term.innerText += "\n" + data.stderr;
+        terminalLines = term.innerText.split("\n").slice(-80);
 
         if (data.data && data.data.Results) {
           benchmarkData = data.data;
@@ -1386,6 +1686,7 @@
         statusPill.className = "status-badge status-idle";
         statusText.innerText = "Ready";
       } finally {
+        isBenchmarkingActive = false;
         btnAll.disabled = false;
         btnCustom.disabled = false;
       }
