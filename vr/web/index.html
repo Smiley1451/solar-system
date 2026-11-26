@@ -80,48 +80,57 @@
       </div>
     </div>
 
-    <!-- Mass Controller Sliders -->
+    <!-- Mass Controller Sliders (Meters) -->
     <div class="inspector-section">
-      <div class="inspector-section-title">⚖️ Interactive Mass Modifiers</div>
+      <div class="inspector-section-title">⚖️ Interactive Mass Meters (Live Physics)</div>
       
-      <!-- Sun Mass -->
+      <!-- Sun Mass Meter -->
       <div class="control-row">
         <div class="control-label">
           <span>☀️ Sun Mass (M_sol):</span>
-          <span id="lbl-sun-mass" style="color: #fbbf24; font-weight: 700;">1.00× (8.5e29 kg)</span>
+          <span id="lbl-sun-mass" style="color: #fbbf24; font-weight: 700;">1.00× (1.99e30 kg)</span>
         </div>
         <input type="range" id="slider-sun-mass" class="control-slider" min="0.1" max="4.0" step="0.05" value="1.0" oninput="onSunMassSlider(this.value)">
+        <div class="budget-bar-bg" style="height: 6px; margin-top: 3px;">
+          <div class="budget-bar-fill" id="meter-sun-mass" style="width: 25%; background: #fbbf24;"></div>
+        </div>
         <div class="btn-pill-row">
-          <button class="btn-mini-pill" onclick="setSunMass(0.4)">0.4× (Hyperbolic Escape)</button>
+          <button class="btn-mini-pill" onclick="setSunMass(0.4)">0.4× (Escape)</button>
           <button class="btn-mini-pill" onclick="setSunMass(1.0)">1.0× (Standard)</button>
-          <button class="btn-mini-pill" onclick="setSunMass(2.0)">2.0× (Orbital Collapse)</button>
+          <button class="btn-mini-pill" onclick="setSunMass(2.0)">2.0× (Collapse)</button>
         </div>
       </div>
 
-      <!-- Jupiter Mass -->
-      <div class="control-row" style="margin-top: 10px;">
-        <div class="control-label">
-          <span>♃ Jupiter Mass:</span>
-          <span id="lbl-jup-mass" style="color: #fbbf24; font-weight: 700;">1.0× (1.9e27 kg)</span>
+      <!-- Universal Planet Mass Meter (Any Planet 1..9) -->
+      <div class="control-row" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.12);">
+        <div class="control-label" style="align-items: center;">
+          <span>🪐 Planet Meter:</span>
+          <select id="select-planet-mass" onchange="onPlanetMassSelectChange()" style="background:#0f172a; color:#38bdf8; border:1px solid rgba(56,189,248,0.45); border-radius:4px; padding:2px 6px; font-size:11px; font-family:var(--font-mono); font-weight:700;">
+            <option value="1">☿ Mercury</option>
+            <option value="2">♀ Venus</option>
+            <option value="3">🜨 Earth</option>
+            <option value="4">♂ Mars</option>
+            <option value="5" selected>♃ Jupiter</option>
+            <option value="6">♄ Saturn</option>
+            <option value="7">♅ Uranus</option>
+            <option value="8">♆ Neptune</option>
+            <option value="9">⯓ Pluto</option>
+          </select>
         </div>
-        <input type="range" id="slider-jup-mass" class="control-slider" min="1" max="500" step="5" value="1" oninput="onJupiterMassSlider(this.value)">
+        <div class="control-label" style="margin-top: 4px;">
+          <span style="color:#94a3b8; font-size:10px;">Active Mass:</span>
+          <span id="lbl-planet-mass" style="color: #38bdf8; font-weight: 700;">1.0× (1.90e27 kg)</span>
+        </div>
+        <input type="range" id="slider-planet-mass" class="control-slider" min="0" max="100" step="1" value="25" oninput="onPlanetMassMeterSlider(this.value)">
+        <div class="budget-bar-bg" style="height: 6px; margin-top: 3px;">
+          <div class="budget-bar-fill" id="meter-planet-mass" style="width: 25%; background: #38bdf8;"></div>
+        </div>
         <div class="btn-pill-row">
-          <button class="btn-mini-pill" onclick="setJupiterMass(1)">1× (Normal)</button>
-          <button class="btn-mini-pill" onclick="setJupiterMass(50)">50× (Perturb Asteroids)</button>
-          <button class="btn-mini-pill" onclick="setJupiterMass(500)">500× (Binary Star System)</button>
-        </div>
-      </div>
-
-      <!-- Earth Mass -->
-      <div class="control-row" style="margin-top: 10px;">
-        <div class="control-label">
-          <span>🜨 Earth Mass:</span>
-          <span id="lbl-earth-mass" style="color: #38bdf8; font-weight: 700;">1.0× (5.97e24 kg)</span>
-        </div>
-        <div class="btn-pill-row">
-          <button class="btn-mini-pill" onclick="setEarthMass(1)">1× (Normal)</button>
-          <button class="btn-mini-pill" onclick="setEarthMass(100)">100× (Super-Earth)</button>
-          <button class="btn-mini-pill" onclick="setEarthMass(1000)">1000× (Massive Attractor)</button>
+          <button class="btn-mini-pill" onclick="setSelectedPlanetMass(0.1)">0.1×</button>
+          <button class="btn-mini-pill" onclick="setSelectedPlanetMass(1)">1× (Normal)</button>
+          <button class="btn-mini-pill" onclick="setSelectedPlanetMass(50)">50×</button>
+          <button class="btn-mini-pill" onclick="setSelectedPlanetMass(500)">500×</button>
+          <button class="btn-mini-pill" onclick="setSelectedPlanetMass(1000)">1000×</button>
         </div>
       </div>
     </div>

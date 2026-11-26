@@ -26,8 +26,8 @@ let simSpeed = 1.0;
 // Camera Navigation (Spherical Orbit)
 let camYaw = 0.85;
 let camPitch = 0.38;
-let camDistance = 45.0;
-let targetCamDistance = 45.0;
+let camDistance = 58.0;
+let targetCamDistance = 58.0;
 let currentCenter = new THREE.Vector3(0, 0, 0);
 let targetCenter = new THREE.Vector3(0, 0, 0);
 let focusIndex = 0; // 0 = Sun
@@ -67,11 +67,12 @@ const initialVelY = new Float32Array(N_TOTAL);
 const initialVelZ = new Float32Array(N_TOTAL);
 
 // Physical Gravitational Scaling Constants
-const SOFTENING_EPS_SQ = 0.08; // Gravitational softening eps^2 preventing singularity
-const G_SIM = 3.25; // Calibrated so Earth at 1 AU (r=4.2) maintains stable v = 0.88, T = 30s
+const SOFTENING_EPS_SQ = 0.25; // Gravitational softening eps^2 preventing singularity
+const G_SIM = 5.0; // Calibrated for AU = 6.5 so Earth orbits at v = sqrt(5.0 / 6.5) = 0.877
 let sunMassMultiplier = 1.0;
 let jupiterMassMultiplier = 1.0;
 let earthMassMultiplier = 1.0;
+let planetMassMultipliers = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 let currentEngine = "GPU_SIMT"; // 'GPU_SIMT', 'CPU_OMP', 'CPU_SCALAR'
 let ompThreads = 8; // 1, 2, 4, 8
 let cyclesPerMs = 150000; // Calibrated on init
@@ -99,21 +100,21 @@ let lastFpsTime = performance.now();
 let currentFps = 60.0;
 let physicsTimeMs = 0.56;
 
-// Scale: 1 AU = 4.2 world units
-const AU = 4.2;
+// Scale: 1 AU = 6.5 world units (ensures Mercury at 2.52 > Sun+Corona 1.94, zero overlap!)
+const AU = 6.5;
 
 // Definitions matching SolarSystemDataSet.cpp & SolarSystemVisuals.cpp
 const PLANET_DATA = [
-  { id: 0, name: "SUN", type: "G2V Star", rAU: 0.0, radius: 2.4, color: [1.0, 0.9, 0.2], period: "Center", mass: "1.989 × 10³⁰ kg", simMass: 1000.0 },
-  { id: 1, name: "MERCURY", type: "Terrestrial", rAU: 0.387, radius: 0.28, color: [0.68, 0.65, 0.62], period: "87.97 days", mass: "3.30 × 10²³ kg", simMass: 0.000165 },
-  { id: 2, name: "VENUS", type: "Terrestrial", rAU: 0.723, radius: 0.44, color: [0.95, 0.78, 0.30], period: "224.7 days", mass: "4.87 × 10²⁴ kg", simMass: 0.00245 },
-  { id: 3, name: "EARTH", type: "Terrestrial", rAU: 1.000, radius: 0.48, color: [0.22, 0.74, 0.97], period: "365.25 days", mass: "5.97 × 10²⁴ kg", simMass: 0.00300 },
-  { id: 4, name: "MARS", type: "Terrestrial", rAU: 1.524, radius: 0.34, color: [0.94, 0.30, 0.25], period: "686.98 days", mass: "6.42 × 10²³ kg", simMass: 0.00032 },
-  { id: 5, name: "JUPITER", type: "Gas Giant", rAU: 2.700, radius: 1.25, color: [0.85, 0.55, 0.20], period: "11.86 yrs", mass: "1.90 × 10²⁷ kg", simMass: 0.955 },
-  { id: 6, name: "SATURN", type: "Gas Giant (Rings)", rAU: 3.500, radius: 1.05, color: [0.96, 0.85, 0.45], period: "29.46 yrs", mass: "5.68 × 10²⁶ kg", simMass: 0.286, hasRings: true },
-  { id: 7, name: "URANUS", type: "Ice Giant", rAU: 4.400, radius: 0.70, color: [0.30, 0.85, 0.90], period: "84.01 yrs", mass: "8.68 × 10²⁵ kg", simMass: 0.0436 },
-  { id: 8, name: "NEPTUNE", type: "Ice Giant", rAU: 5.300, radius: 0.68, color: [0.25, 0.55, 0.95], period: "164.8 yrs", mass: "1.02 × 10²⁶ kg", simMass: 0.0515 },
-  { id: 9, name: "PLUTO", type: "Dwarf Planet", rAU: 6.200, radius: 0.22, color: [0.65, 0.65, 0.70], period: "247.9 yrs", mass: "1.30 × 10²² kg", simMass: 0.000006 }
+  { id: 0, name: "SUN", type: "G2V Star", rAU: 0.0, radius: 1.55, color: [1.0, 0.9, 0.2], period: "Center", mass: "1.989 × 10³⁰ kg", realMassKg: 1.989e30, simMass: 1000.0 },
+  { id: 1, name: "MERCURY", type: "Terrestrial", rAU: 0.387, radius: 0.26, color: [0.68, 0.65, 0.62], period: "87.97 days", mass: "3.30 × 10²³ kg", realMassKg: 3.301e23, simMass: 0.000165 },
+  { id: 2, name: "VENUS", type: "Terrestrial", rAU: 0.723, radius: 0.42, color: [0.95, 0.78, 0.30], period: "224.7 days", mass: "4.87 × 10²⁴ kg", realMassKg: 4.867e24, simMass: 0.00245 },
+  { id: 3, name: "EARTH", type: "Terrestrial", rAU: 1.000, radius: 0.46, color: [0.22, 0.74, 0.97], period: "365.25 days", mass: "5.97 × 10²⁴ kg", realMassKg: 5.972e24, simMass: 0.00300 },
+  { id: 4, name: "MARS", type: "Terrestrial", rAU: 1.524, radius: 0.34, color: [0.94, 0.30, 0.25], period: "686.98 days", mass: "6.42 × 10²³ kg", realMassKg: 6.417e23, simMass: 0.00032 },
+  { id: 5, name: "JUPITER", type: "Gas Giant", rAU: 2.700, radius: 1.20, color: [0.85, 0.55, 0.20], period: "11.86 yrs", mass: "1.90 × 10²⁷ kg", realMassKg: 1.898e27, simMass: 0.955 },
+  { id: 6, name: "SATURN", type: "Gas Giant (Rings)", rAU: 3.500, radius: 1.00, color: [0.96, 0.85, 0.45], period: "29.46 yrs", mass: "5.68 × 10²⁶ kg", realMassKg: 5.683e26, simMass: 0.286, hasRings: true },
+  { id: 7, name: "URANUS", type: "Ice Giant", rAU: 4.400, radius: 0.68, color: [0.30, 0.85, 0.90], period: "84.01 yrs", mass: "8.68 × 10²⁵ kg", realMassKg: 8.681e25, simMass: 0.0436 },
+  { id: 8, name: "NEPTUNE", type: "Ice Giant", rAU: 5.300, radius: 0.66, color: [0.25, 0.55, 0.95], period: "164.8 yrs", mass: "1.02 × 10²⁶ kg", realMassKg: 1.024e26, simMass: 0.0515 },
+  { id: 9, name: "PLUTO", type: "Dwarf Planet", rAU: 6.200, radius: 0.24, color: [0.65, 0.65, 0.70], period: "247.9 yrs", mass: "1.30 × 10²² kg", realMassKg: 1.303e22, simMass: 0.000006 }
 ];
 
 // GLSL Shaders ported directly from SolarSystemVisuals.cpp
@@ -489,7 +490,7 @@ function createPlanetarySystem() {
       mesh = new THREE.Mesh(new THREE.SphereGeometry(def.radius, 40, 40), customMaterial);
 
       // Glowing Corona Aura
-      const coronaGeo = new THREE.SphereGeometry(def.radius * 1.35, 32, 32);
+      const coronaGeo = new THREE.SphereGeometry(def.radius * 1.25, 32, 32);
       const coronaMat = new THREE.MeshBasicMaterial({
         color: 0xff8800,
         transparent: true,
@@ -1157,16 +1158,26 @@ function setOmpThreads(threads) {
 
 function setSunMass(mult) {
   sunMassMultiplier = mult;
+  planetMassMultipliers[0] = mult;
   masses[0] = initialMasses[0] * mult;
   const slider = document.getElementById("slider-sun-mass");
   if (slider) slider.value = mult;
+  const meter = document.getElementById("meter-sun-mass");
+  if (meter) {
+    meter.style.width = `${Math.min(100, (mult / 4.0) * 100)}%`;
+    meter.style.backgroundColor = mult < 0.6 ? "#ef4444" : (mult > 1.5 ? "#f59e0b" : "#fbbf24");
+  }
   const lbl = document.getElementById("lbl-sun-mass");
-  if (lbl) lbl.innerText = `${mult.toFixed(2)}× (${(8.5e29 * mult).toExponential(2)} kg)`;
+  if (lbl) lbl.innerText = `${mult.toFixed(2)}× (${(1.989e30 * mult).toExponential(2)} kg)`;
+  if (focusIndex === 0) {
+    const valMass = document.getElementById("val-mass");
+    if (valMass) valMass.innerText = `${(1.989e30 * mult).toExponential(2)} kg (${mult.toFixed(2)}×)`;
+  }
 
   if (mult < 0.6) {
     showToast(`⚠️ Sun Mass reduced to ${mult.toFixed(2)}×! Gravitational pull insufficient: Planetary orbits expanding towards hyperbolic escape!`);
   } else if (mult > 1.5) {
-    showToast(`☀️ Sun Mass increased to ${mult.toFixed(2)}×! Gravitational pull doubled: Planetary orbits contracting inward!`);
+    showToast(`☀️ Sun Mass increased to ${mult.toFixed(2)}×! Gravitational pull increased: Planetary orbits contracting inward!`);
   } else {
     showToast(`Sun Mass set to ${mult.toFixed(2)}×.`);
   }
@@ -1176,56 +1187,116 @@ function onSunMassSlider(val) {
   setSunMass(parseFloat(val));
 }
 
-function setJupiterMass(mult) {
-  jupiterMassMultiplier = mult;
-  masses[5] = initialMasses[5] * mult;
-  const slider = document.getElementById("slider-jup-mass");
-  if (slider) slider.value = mult;
-  const lbl = document.getElementById("lbl-jup-mass");
-  if (lbl) lbl.innerText = `${mult.toFixed(1)}× (${(1.9e27 * mult).toExponential(2)} kg)`;
+// Logarithmic slider helpers: 0..100 <-> 0.1x..1000x
+function sliderToMultiplier(s) {
+  return Math.pow(10, (s / 25.0) - 1.0);
+}
+function multiplierToSlider(m) {
+  return Math.max(0, Math.min(100, (Math.log10(Math.max(0.1, m)) + 1.0) * 25.0));
+}
 
-  if (mult >= 50) {
-    showToast(`♃ Jupiter Mass scaled to ${mult}×! Watch gravitational resonance disrupt the Asteroid Belt and inner planets!`);
-  } else {
-    showToast(`Jupiter Mass set to ${mult}×.`);
+function updatePlanetMassMeterUI(planetId) {
+  const mult = planetMassMultipliers[planetId] || 1.0;
+  const def = PLANET_DATA[planetId];
+  if (!def) return;
+
+  const slider = document.getElementById("slider-planet-mass");
+  const meter = document.getElementById("meter-planet-mass");
+  const lbl = document.getElementById("lbl-planet-mass");
+
+  const sVal = multiplierToSlider(mult);
+  if (slider) slider.value = Math.round(sVal);
+  if (meter) {
+    meter.style.width = `${sVal.toFixed(1)}%`;
+    meter.style.backgroundColor = mult >= 50 ? "#f59e0b" : (mult < 0.5 ? "#94a3b8" : "#38bdf8");
+  }
+  const activeKg = (def.realMassKg * mult).toExponential(2);
+  if (lbl) lbl.innerText = `${mult >= 10 ? mult.toFixed(0) : mult.toFixed(2)}× (${activeKg} kg)`;
+
+  if (focusIndex === planetId) {
+    const valMass = document.getElementById("val-mass");
+    if (valMass) valMass.innerText = `${activeKg} kg (${mult >= 10 ? mult.toFixed(0) : mult.toFixed(2)}×)`;
   }
 }
 
+function setPlanetMass(planetId, mult) {
+  if (planetId < 1 || planetId > 9) return;
+  planetMassMultipliers[planetId] = mult;
+  masses[planetId] = initialMasses[planetId] * mult;
+  if (planetId === 5) jupiterMassMultiplier = mult;
+  if (planetId === 3) earthMassMultiplier = mult;
+
+  const sel = document.getElementById("select-planet-mass");
+  if (sel && parseInt(sel.value) === planetId) {
+    updatePlanetMassMeterUI(planetId);
+  } else if (sel) {
+    sel.value = String(planetId);
+    updatePlanetMassMeterUI(planetId);
+  }
+
+  const name = PLANET_DATA[planetId].name;
+  if (mult >= 50) {
+    showToast(`🪐 ${name} Mass scaled to ${mult.toFixed(0)}×! Strong gravitational perturbations active on surrounding orbits!`);
+  } else {
+    showToast(`${name} Mass set to ${mult >= 10 ? mult.toFixed(0) : mult.toFixed(2)}×.`);
+  }
+}
+
+function onPlanetMassSelectChange() {
+  const sel = document.getElementById("select-planet-mass");
+  if (!sel) return;
+  const pid = parseInt(sel.value);
+  updatePlanetMassMeterUI(pid);
+}
+
+function onPlanetMassMeterSlider(sliderVal) {
+  const sel = document.getElementById("select-planet-mass");
+  const pid = sel ? parseInt(sel.value) : 5;
+  const mult = sliderToMultiplier(parseFloat(sliderVal));
+  setPlanetMass(pid, mult);
+}
+
+function setSelectedPlanetMass(mult) {
+  const sel = document.getElementById("select-planet-mass");
+  const pid = sel ? parseInt(sel.value) : 5;
+  setPlanetMass(pid, mult);
+}
+
+function setJupiterMass(mult) {
+  setPlanetMass(5, mult);
+}
+
 function onJupiterMassSlider(val) {
-  setJupiterMass(parseFloat(val));
+  setPlanetMass(5, parseFloat(val));
 }
 
 function setEarthMass(mult) {
-  earthMassMultiplier = mult;
-  masses[3] = initialMasses[3] * mult;
-  const lbl = document.getElementById("lbl-earth-mass");
-  if (lbl) lbl.innerText = `${mult.toFixed(1)}× (${(5.97e24 * mult).toExponential(2)} kg)`;
-  showToast(`Earth Mass set to ${mult}×.`);
+  setPlanetMass(3, mult);
 }
 
 function injectRogueBody() {
   hasRogueBody = true;
-  posX[10] = -38.0;
-  posY[10] = 2.5;
-  posZ[10] = -32.0;
+  posX[10] = -48.0;
+  posY[10] = 3.0;
+  posZ[10] = -40.0;
 
-  velX[10] = 0.55;
+  velX[10] = 0.65;
   velY[10] = -0.04;
-  velZ[10] = 0.42;
+  velZ[10] = 0.50;
 
   masses[10] = 750.0; // Comparable to Sun mass!
 
   if (!rogueMesh) {
-    const geo = new THREE.SphereGeometry(1.4, 24, 24);
+    const geo = new THREE.SphereGeometry(1.3, 24, 24);
     const mat = new THREE.MeshBasicMaterial({ color: 0xec4899 });
     rogueMesh = new THREE.Mesh(geo, mat);
 
-    const coronaGeo = new THREE.SphereGeometry(2.1, 16, 16);
+    const coronaGeo = new THREE.SphereGeometry(1.9, 16, 16);
     const coronaMat = new THREE.MeshBasicMaterial({ color: 0x9333ea, transparent: true, opacity: 0.4, side: THREE.BackSide });
     rogueMesh.add(new THREE.Mesh(coronaGeo, coronaMat));
 
     const rogueLabel = createBillboardLabel("☄️ ROGUE BODY (M=0.75 M_sol)", "#ec4899");
-    rogueLabel.position.set(0, 2.5, 0);
+    rogueLabel.position.set(0, 2.4, 0);
     rogueMesh.add(rogueLabel);
     scene.add(rogueMesh);
 
@@ -1265,19 +1336,17 @@ function resetToEquilibrium() {
   sunMassMultiplier = 1.0;
   jupiterMassMultiplier = 1.0;
   earthMassMultiplier = 1.0;
+  planetMassMultipliers = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
   const sSun = document.getElementById("slider-sun-mass");
   if (sSun) sSun.value = 1.0;
+  const mSun = document.getElementById("meter-sun-mass");
+  if (mSun) { mSun.style.width = "25%"; mSun.style.backgroundColor = "#fbbf24"; }
   const lSun = document.getElementById("lbl-sun-mass");
-  if (lSun) lSun.innerText = "1.00× (8.5e29 kg)";
+  if (lSun) lSun.innerText = "1.00× (1.99e30 kg)";
 
-  const sJup = document.getElementById("slider-jup-mass");
-  if (sJup) sJup.value = 1.0;
-  const lJup = document.getElementById("lbl-jup-mass");
-  if (lJup) lJup.innerText = "1.0× (1.9e27 kg)";
-
-  const lEarth = document.getElementById("lbl-earth-mass");
-  if (lEarth) lEarth.innerText = "1.0× (5.97e24 kg)";
+  const sel = document.getElementById("select-planet-mass");
+  updatePlanetMassMeterUI(sel ? parseInt(sel.value) : 5);
 
   // Reset trails
   majorBodies.forEach((body) => {
@@ -1297,8 +1366,8 @@ function setupMobileTouchNavigation() {
 
   // Single-Finger Touch / Mouse Drag anywhere to look 360°
   window.addEventListener("pointerdown", (e) => {
-    // Ignore clicks on buttons, D-Pad, planet bar, quick actions
-    if (e.target.closest("button") || e.target.closest("#planet-bar") || e.target.closest("#mobile-quick-actions") || e.target.closest("#mobile-dpad")) {
+    // Ignore clicks on buttons, sliders, inspector, D-Pad, planet bar, quick actions
+    if (e.target.closest("button") || e.target.closest("input") || e.target.closest("select") || e.target.closest("#physics-inspector-card") || e.target.closest("#planet-bar") || e.target.closest("#mobile-quick-actions") || e.target.closest("#mobile-dpad")) {
       return;
     }
     isTouching = true;
@@ -1524,24 +1593,25 @@ function focusOnBody(index) {
   const def = (index >= 0 && index < PLANET_DATA.length) ? PLANET_DATA[index] : null;
 
   if (!def) {
+    const elPeriod = document.getElementById("val-period");
     if (index === 11) {
       // Asteroids
       document.getElementById("target-name").innerText = "Asteroid Belt";
       document.getElementById("target-type").innerText = "Planar Particle Disc";
       document.getElementById("val-dist").innerText = "2.1 - 2.4 AU";
       document.getElementById("val-vel").innerText = "18.2 km/s";
-      document.getElementById("val-period").innerText = "3.2 - 3.8 yrs";
+      if (elPeriod) elPeriod.innerText = "3.2 - 3.8 yrs";
       document.getElementById("val-mass").innerText = "2.4 × 10²¹ kg (Total)";
-      targetCamDistance = 18.0;
+      targetCamDistance = 24.0;
     } else if (index === 12) {
       // Kuiper
       document.getElementById("target-name").innerText = "Kuiper Belt";
       document.getElementById("target-type").innerText = "Trans-Neptunian Disc";
       document.getElementById("val-dist").innerText = "30 - 50 AU";
       document.getElementById("val-vel").innerText = "4.5 km/s";
-      document.getElementById("val-period").innerText = "250+ yrs";
+      if (elPeriod) elPeriod.innerText = "250+ yrs";
       document.getElementById("val-mass").innerText = "1.8 × 10²³ kg (Total)";
-      targetCamDistance = 42.0;
+      targetCamDistance = 52.0;
     }
     return;
   }
@@ -1550,10 +1620,23 @@ function focusOnBody(index) {
   document.getElementById("target-type").innerText = def.type;
   document.getElementById("val-dist").innerText = def.rAU > 0 ? `${def.rAU.toFixed(3)} AU` : "0.00 AU (Center)";
   document.getElementById("val-vel").innerText = def.rAU > 0 ? `${(29.8 / Math.sqrt(def.rAU)).toFixed(1)} km/s` : "0.0 km/s";
-  document.getElementById("val-period").innerText = def.period;
-  document.getElementById("val-mass").innerText = def.mass;
+  const elPeriod = document.getElementById("val-period");
+  if (elPeriod) elPeriod.innerText = def.period;
 
-  if (index === 0) targetCamDistance = 22.0;
+  const mult = planetMassMultipliers[index] || 1.0;
+  const activeKg = (def.realMassKg * mult).toExponential(2);
+  document.getElementById("val-mass").innerText = mult === 1.0 ? def.mass : `${activeKg} kg (${mult >= 10 ? mult.toFixed(0) : mult.toFixed(2)}×)`;
+
+  // Also sync Planet Mass Meter dropdown when selecting a planet 1..9
+  if (index >= 1 && index <= 9) {
+    const sel = document.getElementById("select-planet-mass");
+    if (sel) {
+      sel.value = String(index);
+      updatePlanetMassMeterUI(index);
+    }
+  }
+
+  if (index === 0) targetCamDistance = 28.0;
   else if (def.hasRings) targetCamDistance = 7.5;
   else if (def.radius > 0.8) targetCamDistance = 6.0;
   else targetCamDistance = 4.2;
@@ -1599,7 +1682,7 @@ function setupUI() {
 
   document.getElementById("btn-reset-cam").addEventListener("click", () => {
     focusIndex = 0;
-    targetCamDistance = 45.0;
+    targetCamDistance = 58.0;
     camYaw = 0.85;
     camPitch = 0.38;
     focusOnBody(0);
